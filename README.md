@@ -43,10 +43,13 @@ also available standalone (header-only, no external dependencies):
 clang++ -std=c++20 -I src -o staticmon_compile src/tools/staticmon_compile.cpp
 ```
 
-### Legacy: MonPoly `-explicitmon`
+### Alternative: MonPoly `-explicitmon`
 
-The original path still works if you have the modified MonPoly fork
-(vendored in `monpoly-exp/`):
+The upstream MonPoly `-explicitmon` fork
+([matthieugras/monpoly](https://github.com/matthieugras/monpoly)) can also
+produce the two headers, but is no longer required — `staticmon_compile` covers
+the same fragment and then some (it fixes several `-explicitmon` codegen bugs
+and adds MED and LET/LETPAST):
 
 ```
 monpoly -sig bla.sig -formula bla.mfotl -explicitmon -explicitmon_prefix=./src/staticmon/input_formula
@@ -104,15 +107,16 @@ the formula is not monitorable or ill-typed. The behavioral test harness
 `docker/behavioral.Dockerfile` builds a warm, native-architecture build tree
 that recompiles a single translation unit per formula; it is used by the
 behavioral test harness (`test/behavioral/`). The standalone `Dockerfile`
-bundles the vendored MonPoly fork and the monitor toolchain.
+bundles the monitor toolchain and `staticmon_compile` (self-contained; no
+MonPoly needed).
 
 ## Testing
 
 The front-end is differentially tested against the newest MonPoly:
 
   - `test/parser_diff/`     — C++ parser vs the MonPoly parser (canonical ASTs)
-  - `test/pipeline_diff/`   — `staticmon_compile` headers vs `monpoly-exp -explicitmon`;
-                              typing/monitorability vs `monpoly -sigout`/`-check`
+  - `test/pipeline_diff/`   — `staticmon_compile` typing/monitorability
+                              vs `monpoly -sigout`/`-check`
   - `test/behavioral/`      — compiled monitor verdicts vs VeriMon (`monpoly -verified`)
   - `test/monpoly_suite/`   — replays MonPoly's own test corpus (`monpoly-develop/tests`)
                               through staticmon and compares verdicts to VeriMon

@@ -26,7 +26,7 @@
 set -euo pipefail
 
 STATICMON_DIR=/opt/staticmon
-MONPOLY=/opt/monpoly-exp/main.exe
+STATICMON_COMPILE="$STATICMON_DIR/builddir/bin/staticmon_compile"
 HDRDIR="$STATICMON_DIR/src/staticmon/input_formula"
 
 usage() { sed -n '2,25p' "$0" | sed 's/^# \{0,1\}//' >&2; exit 2; }
@@ -56,9 +56,10 @@ cmd_compile() {
   fi
 
   mkdir -p "$HDRDIR"
-  if ! "$MONPOLY" -sig "$sig" -formula "$formula" -no_rw -explicitmon \
-         -explicitmon_prefix "$HDRDIR" > /dev/null 2>&1; then
-    echo "error: header generation failed - is the formula monitorable (RANF)?" >&2
+  if ! "$STATICMON_COMPILE" -sig "$sig" -formula "$formula" \
+         -prefix "$HDRDIR" > /dev/null 2>&1; then
+    echo "error: header generation failed - is the formula monitorable, "\
+"well-typed, and in the supported fragment?" >&2
     exit 3
   fi
   ninja -C "$STATICMON_DIR/builddir" > /dev/null

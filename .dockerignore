@@ -5,10 +5,6 @@
 builddir
 builddir_debug
 profile
-# vendored monpoly fork: sources only
-monpoly-exp/_build
-monpoly-exp/.git
-monpoly-exp/evaluation
 # host-side experiment outputs
 experiments/runner/dist-newstyle
 # per-formula generated headers (the image generates its own)

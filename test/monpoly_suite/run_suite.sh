@@ -39,7 +39,7 @@ while IFS=$'\t' read -r id sig log mfotl; do
   fi
   # staticmon-build exit code: 1 = staticmon's front-end rejects the formula
   # (not monitorable / ill-typed / unsupported construct -- out of fragment,
-  # same as monpoly-exp -explicitmon); 2 = the monitor failed to compile.
+  # same as MonPoly's -explicitmon); 2 = the monitor failed to compile.
   "$BUILD" -sig "$sig" -formula "$mfotl" --container "$CTR" \
         --staticmon-compile "$SC" --cache-dir "$CACHE" -o "$WORK/mon" \
         >"$WORK/b.log" 2>&1; rc=$?

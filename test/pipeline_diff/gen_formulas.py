@@ -1,14 +1,12 @@
 #!/usr/bin/env python3
-"""Generate monitorable MFOTL formulas (+ a fixed signature) for header-diff
-testing staticmon_compile against `monpoly-exp -no_rw -explicitmon`.
+"""Generate MFOTL formulas (+ a fixed signature) for differentially testing
+staticmon_compile's typing and monitorability against MonPoly.
 
 Emits, on stdout, the signature (first line, prefixed `SIG `) then one formula
-per line. Formulas are built to be *mostly* monitorable by construction; the
-harness gates each through monpoly-exp (which aborts on non-monitorable input)
-and only compares the accepted ones. Constructs excluded by design (deviation
-D1 — staticmon fixes explicitmon codegen bugs there, so headers differ):
-f2i/i2f and integer division `/`. Also excluded: regex, LET, TRIGGER/RELEASE,
-SUBSTRING/MATCHES (out of the initial backend fragment).
+per line, built to be mostly monitorable by construction (the harness also
+feeds non-monitorable and some ill-typed ones). Used by
+test/pipeline_diff/run_check_diff.sh, which compares
+`staticmon_compile -sigout`/`-check` against `monpoly -sigout`/`-check`.
 """
 
 import random

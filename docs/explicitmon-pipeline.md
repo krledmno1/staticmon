@@ -2,12 +2,18 @@
 
 Requirements + design for AGENT.md task *"Integration of the new parser into
 the Staticmon pipeline"*: replace the whole `-explicitmon` pipeline (typing,
-monitorability, exformula translation, C++ codegen) — currently OCaml in
-`monpoly-exp` — with native C++ in staticmon. Oracle: the newest MonPoly
-(`monpoly-develop` @ `fe89b7da`, installed natively as `monpoly`).
+monitorability, exformula translation, C++ codegen) — originally OCaml in the
+MonPoly `-explicitmon` fork — with native C++ in staticmon. Oracle: the newest
+MonPoly (`monpoly-develop` @ `fe89b7da`, installed natively as `monpoly`).
 
-Status: **requirements/design** (no pipeline code yet). Parser stage already
-done (`src/staticmon/parser/`, see docs/monpoly-grammar.md).
+> **Status update.** The pipeline is implemented and shipped
+> (`src/staticmon/compile/`, `staticmon_compile`). The `-explicitmon` fork is
+> no longer vendored in-repo (formerly `monpoly-exp/`); staticmon generates the
+> headers natively. The structural header-diff oracle (which used
+> `monpoly-exp -explicitmon`) has been retired in favour of behavioral
+> equivalence against VeriMon (`test/behavioral/`, `test/monpoly_suite/`).
+> References to `monpoly-exp` below are historical, describing the reference
+> implementation the port was validated against during bring-up.
 
 ## 1. What the pipeline does today (OCaml)
 

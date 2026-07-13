@@ -2,7 +2,7 @@
 // Stage 3a (desugaring): MonPoly's Rewriting.elim_syntactic_sugar over the
 // parser AST (see docs/explicitmon-pipeline.md §4). Eliminates Implies, Equiv,
 // ForAll, Always, PastAlways into the core fragment and prunes vacuous Exists.
-// Matches monpoly-exp with verified=false (the explicitmon setting): Always ->
+// Matches MonPoly's -explicitmon with verified=false (the explicitmon setting): Always ->
 // Neg(Eventually(Neg .)), PastAlways -> Neg(Once(Neg .)).
 //
 // Operates by value (deep clone) because Equiv duplicates its operands.

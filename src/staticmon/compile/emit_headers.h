@@ -1,11 +1,9 @@
 #pragma once
 // Stage 5 (codegen): render an exformula IR to the two header files
-// formula_in.h and formula_csts.h, mirroring
-// monpoly-exp/src/explicitmon.ml's cpp_of_exformula / print_* functions
-// (see docs/explicitmon-pipeline.md §3). Output is semantically identical to
-// monpoly-exp's; whitespace/line-wrapping differ (the header-diff harness
-// normalizes whitespace), so we format for readability rather than byte
-// parity with OCaml's Format boxes.
+// formula_in.h and formula_csts.h, mirroring the cpp_of_exformula / print_*
+// functions of MonPoly's -explicitmon codegen (explicitmon.ml)
+// (see docs/explicitmon-pipeline.md §3). We format for readability rather than
+// byte parity with OCaml's Format boxes.
 
 #include <staticmon/compile/exformula.h>
 #include <staticmon/parser/formula_ast.h>

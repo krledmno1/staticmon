@@ -1,4 +1,4 @@
-// Native replacement for `monpoly-exp -explicitmon`: parse a signature and a
+// Native replacement for MonPoly's -explicitmon backend: parse a signature and a
 // formula, then emit formula_in.h + formula_csts.h. Stages: parse (done) ->
 // desugar -> translate -> codegen. Typing and monitorability checks are not
 // yet wired in (see docs/explicitmon-pipeline.md); callers should feed

@@ -1,7 +1,7 @@
 # Native-arch image for the behavioral end-to-end oracle: a warm StaticMon
 # monitor build tree that recompiles ONE translation unit (staticmon.cpp) per
 # formula. Headers are injected from the host (docker cp) by the harness, so
-# this image does NOT need monpoly-exp. Built for the host architecture (no
+# this image does NOT need any MonPoly install. Built for the host architecture (no
 # emulation) for fast per-formula compiles.
 #
 #   docker build -f docker/behavioral.Dockerfile -t staticmon-bench .

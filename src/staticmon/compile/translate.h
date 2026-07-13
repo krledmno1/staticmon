@@ -1,14 +1,14 @@
 #pragma once
 // Stage 4 (translation): desugared parser::formula -> exformula IR, mirroring
-// monpoly-exp/src/explicitmon.ml translate_formula / transform_fused_op
+// explicitmon.ml (MonPoly's -explicitmon fork) translate_formula / transform_fused_op
 // (see docs/explicitmon-pipeline.md §4). Assumes the input is desugared
 // (no Implies/Equiv/ForAll/Always/PastAlways) and monitorable; callers gate
 // on monitorability (stage 3) first.
 //
 // Deviation D1: Div -> tdiv, Mod -> tmod, F2i/I2f kept as tf2i/ti2f (the C++
-// backend supports all of these; explicitmon.ml has bugs here). This is the
-// only intentional structural divergence from monpoly-exp; the header-diff
-// corpus avoids these constructs and they are checked behaviorally instead.
+// backend supports all of these; the -explicitmon codegen had bugs here). An
+// intentional divergence from that backend; these constructs are validated
+// behaviorally (against VeriMon) rather than structurally.
 
 #include <algorithm>
 #include <map>

@@ -1,12 +1,12 @@
 #pragma once
-// The exformula intermediate representation: a value-typed mirror of
-// monpoly-exp/src/explicitmon.ml's `exformula` / `term` / `simple_op` types
-// (see docs/explicitmon-pipeline.md §4). This is the target of stage 4
-// (translation) and the input to stage 5 (codegen). It is a plain algebraic
-// value type — NOT templates; the templates are the emitted output text.
+// The exformula intermediate representation: a value-typed mirror of the
+// `exformula` / `term` / `simple_op` types of MonPoly's -explicitmon codegen
+// (explicitmon.ml; see docs/explicitmon-pipeline.md §4). This is the target of
+// stage 4 (translation) and the input to stage 5 (codegen). It is a plain
+// algebraic value type — NOT templates; the templates are the emitted output.
 //
 // Traceability: constructor names mirror the OCaml ones so the port stays
-// auditable against explicitmon.ml.
+// auditable against that backend.
 
 #include <cstdint>
 #include <memory>

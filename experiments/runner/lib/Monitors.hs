@@ -142,14 +142,20 @@ staticmon = Monitor {..}
       basedir <- RD.asks f_mon_path
       b <- RD.asks f_build_dir
       let header_dir = basedir </> "src" </> "staticmon" </> "input_formula"
-          opts = ["-explicitmon", "-explicitmon_prefix", header_dir]
           builddir = basedir </> T.unpack b
-      runMonpoly opts s f >>= \case
+          staticmonCompile = builddir </> "bin" </> "staticmon_compile"
+      -- native front-end: build it, generate the formula headers, then build
+      -- the specialized monitor (no MonPoly dependency).
+      runKeep "ninja" ["-C", builddir, "bin/staticmon_compile"] >>= \case
         Left err -> return $ Left err
         Right _ ->
-          runKeep "ninja" ["-C", builddir] >>= \case
+          runDiscard staticmonCompile
+            ["-sig", s, "-formula", f, "-prefix", header_dir] >>= \case
             Left err -> return $ Left err
-            Right _ -> return $ Right (builddir </> "bin" </> "staticmon")
+            Right _ ->
+              runKeep "ninja" ["-C", builddir] >>= \case
+                Left err -> return $ Left err
+                Right _ -> return $ Right (builddir </> "bin" </> "staticmon")
 
     runBenchmark exe _ _ l =
       benchmark (runDiscard exe ["--log", l])
