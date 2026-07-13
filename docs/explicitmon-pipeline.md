@@ -150,14 +150,27 @@ they may differ; differences to be catalogued during implementation.
 MonPoly types: `tcst = TInt|TStr|TFloat|TRegexp`; symbolic type variables
 `tsymb = TSymb(tcl,int) | TCst tcst` with classes `tcl = TNum|TAny`.
 Signature predicate slots fix argument types; inference unifies term/variable
-types across the formula (arithmetic ⇒ numeric, conversions fix in/out types,
-comparisons unify their sides, aggregations constrain agg/result types).
-Detailed rules: see the typing/monitorability requirements appendix (being
-finalized from monpoly-develop `rewriting.ml`). Oracle: `-sigout` free-var
-types + type-error parity. For codegen, per-slot predicate types (from the
-signature) suffice for `pvar`/`pcst`/`pred_map`; full inference is needed to
-(a) reject ill-typed formulas as monpoly does and (b) type comparison/arith
-terms (int vs float vs string) inside fused constraints.
+types across the formula. Implemented in `compile/typing.h` (port of
+rewriting.ml 1282-1774): the relations `|<=|` (specificity), `type_clash`,
+`more_spec_type`, and `propagate_constraints` (whole-environment substitution
+of the less-specific type by the more-specific one); term rules (arithmetic ⇒
+fresh Num var, conversions fix concrete in/out types, `mod` ⇒ Int); formula
+rules (Equal/Less/LessEq unify both sides via a fresh Any var; Pred against
+signature slots; Exists/ForAll/Aggreg scoping with fresh symbols); aggregation
+result/agg-var typing per op (Cnt⇒Int result; Sum⇒Num both; Avg/Med⇒Float
+result, Num agg; Min/Max⇒shared Any, result unified with agg-var). Unresolved
+symbolic types **default to TFloat** at the end (check_syntax). Validated
+against `monpoly -sigout` (exact, including the `Type check error ...` text).
+For codegen, per-slot predicate types (from the signature) already suffice for
+`pvar`/`pcst`/`pred_map`; the type checker's role is to reject ill-typed
+formulas exactly as monpoly does and to expose free-var types.
+
+Monitorability (`compile/monitorable.h`, port of is_monitorable 295-500 +
+check_intervals/check_bounds 849-975) is the *unverified* fragment run on the
+desugared formula. Validated against `monpoly -check`, zero soundness
+violations. Known completeness gap: monpoly's default `-check` runs full
+rewriting (`rr`) first, which staticmon does not — a few rr-monitorable
+formulas are reported non-monitorable (sound, documented in STATUS.md).
 
 ## 7. Proposed C++ architecture (SKILLS-Cpp: pure core, explicit types, oracles)
 
