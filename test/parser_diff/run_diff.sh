@@ -1,20 +1,31 @@
 #!/usr/bin/env bash
 # Differential test: staticmon C++ parser vs MonPoly oracle.
-# Usage: run_diff.sh <parser_dump-binary> [n_random]
-# Requires the monpoly-oracle docker image (docker/oracle.Dockerfile).
+# Usage: run_diff.sh <parser_dump-binary> [n_random] [seed]
+# Oracle: the natively built ../parser_oracle/_build/default/oracle.exe if
+# present (build: cd ../parser_oracle && dune build --release ./oracle.exe),
+# otherwise the monpoly-oracle docker image (docker/oracle.Dockerfile).
+# Override with ORACLE_CMD.
 set -euo pipefail
 
 cd "$(dirname "$0")"
 PARSER=${1:?path to parser_dump binary}
 N_RANDOM=${2:-3000}
 SEED=${3:-20260713}
+NATIVE_ORACLE=../parser_oracle/_build/default/oracle.exe
+if [ -z "${ORACLE_CMD:-}" ]; then
+  if [ -x "$NATIVE_ORACLE" ]; then
+    ORACLE_CMD=$NATIVE_ORACLE
+  else
+    ORACLE_CMD="docker run --rm -i monpoly-oracle"
+  fi
+fi
 WORK=$(mktemp -d)
 trap 'rm -rf "$WORK"' EXIT
 
 python3 gen_corpus.py "$N_RANDOM" "$SEED" > "$WORK/frames.bin"
 
 "$PARSER" < "$WORK/frames.bin" > "$WORK/cpp.out"
-docker run --rm -i monpoly-oracle < "$WORK/frames.bin" > "$WORK/ml.out"
+$ORACLE_CMD < "$WORK/frames.bin" > "$WORK/ml.out"
 
 # parse_error lines: compare category only (messages differ by design)
 norm() { sed 's/^(parse_error.*/(parse_error)/' "$1"; }

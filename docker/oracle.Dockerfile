@@ -16,14 +16,16 @@ RUN sudo apt-get update && sudo apt-get install -y --no-install-recommends \
 RUN opam install -y dune zarith
 
 # Pin the exact commit the grammar baseline (docs/monpoly-grammar.md) was
-# extracted from. Nothing in the upstream repo is modified; the oracle driver
-# is copied NEXT TO it in this image so dune resolves libmonpoly in-workspace.
+# extracted from; opam builds it in its own copy (upstream repo unmodified).
 ARG MONPOLY_REPO=https://bitbucket.org/jshs/monpoly.git
 ARG MONPOLY_COMMIT=fe89b7da43c1c15edd615a749c56e643cb2e10b8
 RUN git clone "$MONPOLY_REPO" /home/opam/monpoly && \
-    cd /home/opam/monpoly && git checkout "$MONPOLY_COMMIT"
+    cd /home/opam/monpoly && git checkout "$MONPOLY_COMMIT" && \
+    opam pin add -y libmonpoly /home/opam/monpoly
 
-COPY --chown=opam test/parser_oracle /home/opam/monpoly/oracle
-RUN cd /home/opam/monpoly && opam exec -- dune build --release oracle/oracle.exe
+# The oracle is its own dune project building against the installed
+# libmonpoly — same layout as the native build on the host.
+COPY --chown=opam test/parser_oracle /home/opam/oracle
+RUN cd /home/opam/oracle && opam exec -- dune build --release ./oracle.exe
 
-ENTRYPOINT ["/home/opam/monpoly/_build/default/oracle/oracle.exe"]
+ENTRYPOINT ["/home/opam/oracle/_build/default/oracle.exe"]

@@ -47,3 +47,4 @@ SKILLS-Isabelle.md
 monpoly-exp
 monpoly
 .DS_Store
+test/parser_oracle/_build
