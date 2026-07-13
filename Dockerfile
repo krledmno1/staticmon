@@ -1,8 +1,8 @@
 # Standalone StaticMon image: compile-per-formula monitoring on a mounted
 # work directory, self-contained (no external MonPoly needed).
 #
-#   docker build -t staticmon .                          # (x86-64 host)
-#   docker build --platform linux/amd64 -t staticmon .   # (Apple Silicon)
+#   docker build -t staticmon .                          # native to the host (fast)
+#   docker build --platform linux/amd64 -t staticmon .   # portable x86-64 image (qemu on arm64)
 #
 #   docker run --rm -v "$PWD":/work staticmon \
 #     compile -sig formula.sig -formula formula.mfotl
@@ -22,10 +22,12 @@
 #     together over the /work mount.
 #
 # Notes:
-#   - The Conan profile targets x86-64/Clang 14, matching upstream's setup.sh
-#     answers "Clang / 14 / release"; on arm64 hosts build with
-#     --platform linux/amd64 (qemu). Timings under emulation are not
-#     representative.
+#   - The Conan profile (Clang 14, matching upstream's setup.sh answers
+#     "Clang / 14 / release") derives its `arch` from the build host, so a plain
+#     `docker build` compiles natively -- fast on any host, including Apple
+#     Silicon. Pass `--platform linux/amd64` only when you want a portable
+#     x86-64 image (built under qemu on arm64; timings then aren't
+#     representative).
 #   - check_ipo_supported() is gated behind ENABLE_IPO in CMakeLists.txt, so
 #     configuring also works on toolchains without LTO support.
 
@@ -45,13 +47,24 @@ WORKDIR /opt/staticmon
 
 # Replicate the effects of the interactive ./setup.sh for "Clang / 14 /
 # release": the Conan profile and the configure invocation it would generate.
-RUN printf '%s\n' \
-      '[settings]' 'os=Linux' 'os_build=Linux' 'arch=x86_64' \
-      'arch_build=x86_64' 'compiler=clang' 'compiler.libcxx=libstdc++11' \
+# The arch and optimization flags are taken from the build platform (dpkg
+# reports amd64/arm64, which tracks `--platform` when set and the host
+# otherwise), so the image builds natively unless a specific --platform is
+# requested. `-march=native` is x86-64 only: Clang 14 accepts it there (even
+# under qemu) but cannot resolve the host CPU for aarch64 in Docker's VM
+# ("clang: error: ... does not support '-march=native'"), so arm64 omits it.
+RUN case "$(dpkg --print-architecture)" in \
+      amd64) CONAN_ARCH=x86_64; OPTFLAGS='-flto=full -march=native -g' ;; \
+      arm64) CONAN_ARCH=armv8;  OPTFLAGS='-flto=full -g' ;; \
+      *) echo "unsupported build arch: $(dpkg --print-architecture)" >&2; exit 1 ;; \
+    esac && \
+    printf '%s\n' \
+      '[settings]' 'os=Linux' 'os_build=Linux' "arch=$CONAN_ARCH" \
+      "arch_build=$CONAN_ARCH" 'compiler=clang' 'compiler.libcxx=libstdc++11' \
       'compiler.cppstd=20' 'compiler.version=14' 'build_type=Release' \
       '[options]' '[build_requires]' '[env]' 'CC=clang' 'CXX=clang++' \
-      'CFLAGS="-flto=full -march=native -g"' \
-      'CXXFLAGS="-flto=full -march=native -g"' \
+      "CFLAGS=\"$OPTFLAGS\"" \
+      "CXXFLAGS=\"$OPTFLAGS\"" \
       > profile
 # conan resolves boost/abseil/fmt/jemalloc from conancenter and cmake fetches
 # lexy via FetchContent: this step needs network access at image build time
