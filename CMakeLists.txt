@@ -12,6 +12,7 @@ option(ENABLE_SANITIZERS "Enable ASAN and UBSAN" OFF)
 option(ENABLE_FILE_INPUT "Enable reading traces from files" ON)
 option(ENABLE_TRACE_TIME "Enable compile time tracing" OFF)
 option(ENABLE_SOCK_INTF "Enable socket interface" ON)
+option(ENABLE_IPO "Enable interprocedural optimization/LTO" ON)
 
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 set(CMAKE_CXX_STANDARD 20)
@@ -31,7 +32,16 @@ string(REPLACE "-O2" "-O3" CMAKE_CXX_FLAGS_RELWITHDEBINFO
 string(REPLACE "-O2" "-O3" CMAKE_C_FLAGS_RELWITHDEBINFO
                "${CMAKE_C_FLAGS_RELWITHDEBINFO}")
 
-check_ipo_supported(LANGUAGES C CXX)
+set(IPO_ENABLED FALSE)
+if(ENABLE_IPO)
+  check_ipo_supported(RESULT ipo_supported OUTPUT ipo_output LANGUAGES C CXX)
+  if(ipo_supported)
+    set(CMAKE_INTERPROCEDURAL_OPTIMIZATION ON)
+    set(IPO_ENABLED TRUE)
+  else()
+    message(STATUS "IPO disabled: ${ipo_output}")
+  endif()
+endif()
 
 if(CMAKE_BUILD_TYPE MATCHES DEBUG)
   add_compile_definitions(GLIBCXX_DEBUG=1)
@@ -40,7 +50,10 @@ endif()
 
 if((CMAKE_BUILD_TYPE MATCHES RELEASE) OR (CMAKE_BUILD_TYPE MATCHES
                                           RELWITHDEBINFO))
-  add_compile_options(-flto=full -march=native)
+  if(IPO_ENABLED)
+    add_compile_options(-flto=full)
+  endif()
+  add_compile_options(-march=native)
 endif()
 
 find_program(TEST_LLD ld.lld)

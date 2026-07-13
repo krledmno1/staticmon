@@ -8,5 +8,7 @@ jemalloc/5.2.1
 cmake
 
 [options]
+boost:header_only=True
+boost:error_code_header_only=True
 boost:without_locale=True
 boost:without_stacktrace=True
