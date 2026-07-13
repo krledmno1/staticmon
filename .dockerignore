@@ -7,7 +7,7 @@ builddir_debug
 profile
 # host-side experiment outputs
 experiments/runner/dist-newstyle
-# per-formula generated headers (the image generates its own)
+# per-formula generated headers (the image generates its own); keep the
+# committed formula.h includer, which the template monitor needs at compile time
 src/staticmon/input_formula/formula_in.h
 src/staticmon/input_formula/formula_csts.h
-src/staticmon/input_formula/
