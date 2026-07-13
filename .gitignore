@@ -9,6 +9,8 @@ src/input_formula/formula_in.h
 test/test_runner/dist-newstyle
 configure.sh
 profile
+CMakeUserPresets.json
+install
 experiments/runner/dist-newstyle
 src/staticmon/input_formula/formula_in.h
 experiments/runner/out.csv

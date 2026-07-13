@@ -37,40 +37,36 @@ RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install \
       ca-certificates git clang lld ninja-build cmake make \
       python3 python3-pip libgmp10 \
     && rm -rf /var/lib/apt/lists/*
-# StaticMon's build setup predates Conan 2 (v1 profile format, `-if`)
-RUN pip3 install --no-cache-dir "conan<2"
+RUN pip3 install --no-cache-dir conan
 # link through ld.lld (Clang LTO objects; GCC cannot be mixed in)
 RUN ln -sf /usr/bin/ld.lld /usr/local/bin/ld
 
 COPY . /opt/staticmon
 WORKDIR /opt/staticmon
 
-# Replicate the effects of the interactive ./setup.sh for "Clang / 14 /
-# release": the Conan profile and the configure invocation it would generate.
-# The arch and optimization flags are taken from the build platform (dpkg
-# reports amd64/arm64, which tracks `--platform` when set and the host
-# otherwise), so the image builds natively unless a specific --platform is
-# requested. `-march=native` is x86-64 only: Clang 14 accepts it there (even
-# under qemu) but cannot resolve the host CPU for aarch64 in Docker's VM
-# ("clang: error: ... does not support '-march=native'"), so arm64 omits it.
+# A minimal Conan 2 profile matching ./setup.sh's "Clang / 14 / release". The
+# arch is taken from the build platform (dpkg reports amd64/arm64, which tracks
+# `--platform` when set and the host otherwise), so the image builds natively
+# unless a specific --platform is requested. (The monitor's optimization flags
+# come from CMakeLists' IPO, not the profile, so no custom CFLAGS are needed;
+# -march=native is intentionally omitted -- Clang 14 cannot resolve it for
+# aarch64 in Docker's VM.)
 RUN case "$(dpkg --print-architecture)" in \
-      amd64) CONAN_ARCH=x86_64; OPTFLAGS='-flto=full -march=native -g' ;; \
-      arm64) CONAN_ARCH=armv8;  OPTFLAGS='-flto=full -g' ;; \
+      amd64) CONAN_ARCH=x86_64 ;; \
+      arm64) CONAN_ARCH=armv8 ;; \
       *) echo "unsupported build arch: $(dpkg --print-architecture)" >&2; exit 1 ;; \
     esac && \
     printf '%s\n' \
-      '[settings]' 'os=Linux' 'os_build=Linux' "arch=$CONAN_ARCH" \
-      "arch_build=$CONAN_ARCH" 'compiler=clang' 'compiler.libcxx=libstdc++11' \
-      'compiler.cppstd=20' 'compiler.version=14' 'build_type=Release' \
-      '[options]' '[build_requires]' '[env]' 'CC=clang' 'CXX=clang++' \
-      "CFLAGS=\"$OPTFLAGS\"" \
-      "CXXFLAGS=\"$OPTFLAGS\"" \
+      '[settings]' 'os=Linux' "arch=$CONAN_ARCH" 'compiler=clang' \
+      'compiler.libcxx=libstdc++11' 'compiler.cppstd=20' 'compiler.version=14' \
+      'build_type=Release' \
       > profile
 # conan resolves boost/abseil/fmt/jemalloc from conancenter and cmake fetches
 # lexy via FetchContent: this step needs network access at image build time
-RUN conan install . -if builddir --build=missing -pr=profile && \
+RUN conan install . --output-folder=builddir --build=missing -pr:h=profile -pr:b=profile && \
     CXX=clang++ CC=clang cmake -G Ninja -DUSE_JEMALLOC=ON \
-      -DCMAKE_BUILD_TYPE=RelWithDebInfo -S . -B builddir
+      -DCMAKE_TOOLCHAIN_FILE="$PWD/builddir/conan_toolchain.cmake" \
+      -DCMAKE_BUILD_TYPE=Release -S . -B builddir
 
 # Build the header generator (a dependency-free translation unit that does not
 # include the formula headers), prime the template monitor with a trivial

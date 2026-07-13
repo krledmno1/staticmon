@@ -18,22 +18,27 @@ RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install \
       ca-certificates git clang lld ninja-build cmake make \
       python3 python3-pip libgmp10 \
     && rm -rf /var/lib/apt/lists/*
-RUN pip3 install --no-cache-dir "conan<2"
+RUN pip3 install --no-cache-dir conan
 RUN ln -sf /usr/bin/ld.lld /usr/local/bin/ld
 
 COPY . /opt/staticmon
 WORKDIR /opt/staticmon
 
-# Native conan v1 profile (Linux, host arch auto-detected by conan), Debug so
-# dependency builds and the monitor both compile fast.
-RUN printf '%s\n' \
-      '[settings]' 'os=Linux' 'os_build=Linux' 'arch=armv8' 'arch_build=armv8' \
-      'compiler=clang' 'compiler.libcxx=libstdc++11' \
-      'compiler.cppstd=20' 'compiler.version=14' 'build_type=Release' \
-      '[options]' '[build_requires]' '[env]' 'CC=clang' 'CXX=clang++' \
+# Minimal Conan 2 profile (Linux, host arch via dpkg), Debug so dependency
+# builds and the monitor both compile fast.
+RUN case "$(dpkg --print-architecture)" in \
+      amd64) CONAN_ARCH=x86_64 ;; \
+      arm64) CONAN_ARCH=armv8 ;; \
+      *) echo "unsupported build arch: $(dpkg --print-architecture)" >&2; exit 1 ;; \
+    esac && \
+    printf '%s\n' \
+      '[settings]' 'os=Linux' "arch=$CONAN_ARCH" 'compiler=clang' \
+      'compiler.libcxx=libstdc++11' 'compiler.cppstd=20' 'compiler.version=14' \
+      'build_type=Debug' \
       > profile
-RUN conan install . -if builddir --build=missing -pr=profile && \
+RUN conan install . --output-folder=builddir --build=missing -pr:h=profile -pr:b=profile && \
     CXX=clang++ CC=clang cmake -G Ninja \
+      -DCMAKE_TOOLCHAIN_FILE="$PWD/builddir/conan_toolchain.cmake" \
       -DCMAKE_BUILD_TYPE=Debug -DENABLE_IPO=OFF -DUSE_JEMALLOC=OFF \
       -DENABLE_SOCK_INTF=OFF -DENABLE_FILE_INPUT=ON \
       -S . -B builddir

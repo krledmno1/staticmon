@@ -1,15 +1,17 @@
 #!/bin/bash
+# Generate a Conan 2 profile and a configure.sh for the host toolchain.
 PROJECT_MODE=Debug
-PROFILE_MODE=Debug
 read -p "Compiler (G)CC or (C)lang? " choice
-case "$choice" in 
-  g|G ) 
+case "$choice" in
+  g|G )
     CC=gcc
-    CXX=g++ ;;
-  c|C ) 
+    CXX=g++
+    CONAN_COMPILER=gcc ;;
+  c|C )
     CC=clang
-    CXX=clang++ ;;
-  * ) 
+    CXX=clang++
+    CONAN_COMPILER=clang ;;
+  * )
     echo "invalid input"
     exit 1 ;;
 esac
@@ -17,62 +19,57 @@ esac
 read -p "Compiler version (Major)? " COMPILER_VERSION
 
 read -p "Build in release mode (y/n)? " choice
-case "$choice" in 
-  y|Y ) 
-    PROFILE_MODE=Release
+case "$choice" in
+  y|Y )
     PROJECT_MODE=RelWithDebInfo
-    if [ "$CC" == "clang" ]; then
-      CFLAGS="-flto=full -march=native -g"
-      CXXFLAGS="-flto=full -march=native -g"
-    else
-      CFLAGS="-flto -march=native -g"
-      CXXFLAGS="-flto -march=native -g"
-    fi ;;
-  n|N ) 
-    CFLAGS=""
-    CXXFLAGS="-D_GLIBCXX_DEBUG" ;;
-  * ) 
+    SANITIZERS=OFF
+    JEMALLOC=ON ;;
+  n|N )
+    PROJECT_MODE=Debug
+    SANITIZERS=ON
+    JEMALLOC=OFF ;;
+  * )
     echo "invalid input"
     exit 1 ;;
 esac
 
-
-if [ "$PROFILE_MODE" == "Release" ]; then
-cat > configure.sh <<- EOM
-#!/bin/bash
-rm -r builddir
-conan install . -if builddir --build=missing -pr=profile
-CXX=${CXX} CC=${CC} cmake -G Ninja -DCMAKE_INSTALL_PREFIX="${PWD}/install" -DUSE_JEMALLOC=ON -DCMAKE_BUILD_TYPE=${PROJECT_MODE} -S . -B builddir
-EOM
-else
-cat > configure.sh <<- EOM
-#!/bin/bash
-rm -r builddir
-conan install . -if builddir --build=missing -pr profile
-CXX=${CXX} CC=${CC} cmake -G Ninja -DCMAKE_INSTALL_PREFIX="$PWD/install" -DCMAKE_BUILD_TYPE=${PROJECT_MODE} -DENABLE_SANITIZERS=ON -S . -B builddir
-EOM
+# Conan 2 os/arch/libcxx from the host.
+case "$(uname -m)" in
+  x86_64|amd64)  CONAN_ARCH=x86_64 ;;
+  arm64|aarch64) CONAN_ARCH=armv8 ;;
+  *)             CONAN_ARCH=$(uname -m) ;;
+esac
+case "$(uname -s)" in
+  Darwin) CONAN_OS=Macos; LIBCXX=libc++ ;;
+  *)      CONAN_OS=Linux; LIBCXX=libstdc++11 ;;
+esac
+# On macOS the system "clang" is Apple's fork (Conan calls it apple-clang).
+if [ "$CONAN_OS" = "Macos" ] && [ "$CC" = "clang" ]; then
+  CONAN_COMPILER=apple-clang
 fi
 
 cat > profile <<- EOM
 [settings]
-os=Linux
-os_build=Linux
-arch=x86_64
-arch_build=x86_64
-compiler=${CC}
-compiler.libcxx=libstdc++11
+os=${CONAN_OS}
+arch=${CONAN_ARCH}
+compiler=${CONAN_COMPILER}
+compiler.libcxx=${LIBCXX}
 compiler.cppstd=20
 compiler.version=${COMPILER_VERSION}
-build_type=${PROFILE_MODE}
-[options]
-[build_requires]
-[env]
-CC=${CC}
-CXX=${CXX}
-CFLAGS="${CFLAGS}"
-CXXFLAGS="${CXXFLAGS}"
+build_type=${PROJECT_MODE}
 EOM
 
+cat > configure.sh <<- EOM
+#!/bin/bash
+rm -rf builddir
+conan install . --output-folder=builddir --build=missing -pr:h=profile -pr:b=profile
+CXX=${CXX} CC=${CC} cmake -G Ninja \\
+  -DCMAKE_TOOLCHAIN_FILE="\${PWD}/builddir/conan_toolchain.cmake" \\
+  -DCMAKE_INSTALL_PREFIX="\${PWD}/install" \\
+  -DCMAKE_BUILD_TYPE=${PROJECT_MODE} \\
+  -DUSE_JEMALLOC=${JEMALLOC} -DENABLE_SANITIZERS=${SANITIZERS} \\
+  -S . -B builddir
+EOM
 
 chmod +x configure.sh
-echo "Run ./configure to setup the project, ninja -C builddir to build it"
+echo "Run ./configure.sh to set up the project, then: ninja -C builddir"
