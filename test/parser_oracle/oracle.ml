@@ -181,17 +181,64 @@ and sexp_regex (r : MFOTL.regex) () =
   | Plus (a, b) -> app "Plus" [ sexp_regex a; sexp_regex b ]
   | Star a -> app "Star" [ sexp_regex a ]
 
+let sexp_tcst (t : Predicate.tcst) () =
+  add
+    (match t with
+    | TInt -> "TInt"
+    | TStr -> "TStr"
+    | TFloat -> "TFloat"
+    | TRegexp -> "TRegexp")
+
+(* Db.schema in returned order: user predicates in reverse declaration order
+   (Db.add_predicate prepends), base schema (tp/ts/tpts) last. *)
+let sexp_schema (s : Db.schema) () =
+  add "(Schema";
+  List.iter
+    (fun (p, attrs) ->
+      add " (";
+      str p;
+      List.iter
+        (fun (v, t) ->
+          add " (";
+          str v;
+          add " ";
+          sexp_tcst t ();
+          add ")")
+        attrs;
+      add ")")
+    s;
+  add ")"
+
+(* Frames starting with the line "#SIG" are signatures (the marker line is a
+   comment in both syntaxes, so it cannot collide with real content). *)
+let sig_marker = "#SIG\n"
+
 let parse_and_print (src : string) =
   Buffer.clear buf;
-  (match Formula_parser.formula Formula_lexer.token (Lexing.from_string src) with
-  | f ->
-      add "(ok ";
-      sexp_formula f ();
-      add ")"
-  | exception e ->
-      add "(parse_error ";
-      str (Printexc.to_string e);
-      add ")");
+  let n = String.length sig_marker in
+  (if String.length src >= n && String.sub src 0 n = sig_marker then
+     let body = String.sub src n (String.length src - n) in
+     match Log_parser.parse_signature body with
+     | s ->
+         add "(ok ";
+         sexp_schema s ();
+         add ")"
+     | exception e ->
+         add "(parse_error ";
+         str (Printexc.to_string e);
+         add ")"
+   else
+     match
+       Formula_parser.formula Formula_lexer.token (Lexing.from_string src)
+     with
+    | f ->
+        add "(ok ";
+        sexp_formula f ();
+        add ")"
+    | exception e ->
+        add "(parse_error ";
+        str (Printexc.to_string e);
+        add ")");
   print_string (Buffer.contents buf);
   print_newline ()
 
