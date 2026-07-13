@@ -14,3 +14,4 @@ experiments/runner/dist-newstyle
 # per-formula generated headers (the image generates its own)
 src/staticmon/input_formula/formula_in.h
 src/staticmon/input_formula/formula_csts.h
+src/staticmon/input_formula/
