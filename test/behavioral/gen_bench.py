@@ -39,13 +39,12 @@ CURATED = [
     # desugared
     "p(x) IMPLIES q(x)", "ALWAYS[0,3] p(x)", "PAST_ALWAYS[0,3] p(x)",
     "EVENTUALLY[0,2] (p(x) OR q(x))",
-    # aggregations, with and without a group-by variable (empty-relation
-    # handling fixed in aggregations.h). MED is excluded: the monitor has no
-    # med_agg_op. AVG produces a float output (compared numerically).
+    # aggregations, with and without a group-by variable. AVG/MED produce a
+    # float output (compared numerically).
     "c <- CNT x; y r(x,y)", "c <- CNT y; x r(x,y)", "c <- CNT x r(y,x)",
     "m <- SUM x; y r(y,x)", "m <- MIN x; y r(y,x)", "m <- MAX x; y r(y,x)",
     "m <- MIN x r(y,x)", "m <- MAX x r(y,x)", "s <- SUM x r(y,x)",
-    "avg <- AVG x; y r(y,x)",
+    "avg <- AVG x; y r(y,x)", "md <- MED x; y r(y,x)", "md <- MED x r(y,x)",
     "c <- CNT x; y (r(x,y) AND p(x))",
     # strings, incl. constants (mterm.h tcst + formula.h sv-literal fixed)
     'a(u) AND u = "aa"', 'b(x,u) AND u = "bb"',
