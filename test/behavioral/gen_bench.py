@@ -49,6 +49,14 @@ CURATED = [
     # strings, incl. constants (mterm.h tcst + formula.h sv-literal fixed)
     'a(u) AND u = "aa"', 'b(x,u) AND u = "bb"',
     "EXISTS u. b(x,u)", "b(x,u) AND p(x)",
+    # LET / LETPAST
+    "LET P(x) = q(x) IN P(x) AND p(x)",
+    "LET T(x,y) = r(x,y) IN ONCE[0,3] T(x,y)",
+    "LET P(x) = q(x) IN P(x) OR (EXISTS y. r(x,y))",
+    "LET P(x) = q(x) IN LET Z(x) = P(x) AND p(x) IN Z(x)",
+    "LET A(x) = p(x) IN LET A(x) = q(x) IN A(x) AND A(x)",
+    "LETPAST L(x) = p(x) OR (PREV L(x) AND q(x)) IN L(x)",
+    "LETPAST L(x) = q(x) OR (PREV L(x)) IN L(x) AND p(x)",
     # --- deviation D1: div / mod / conversions inside constraints ---
     "r(x,y) AND z = x + y", "r(x,y) AND z = x - y",
     "r(x,y) AND z = x * y",
