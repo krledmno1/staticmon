@@ -30,9 +30,13 @@ struct translate_error {
 // Signature lookup: predicate name -> ordered argument types.
 using schema_map = std::map<std::string, std::vector<val_type>>;
 
+using let_param_types_map =
+  std::map<const parser::fo_let *, std::vector<val_type>>;
+
 class translator {
 public:
-  explicit translator(schema_map schema) : schema_(std::move(schema)) {}
+  explicit translator(schema_map schema, let_param_types_map let_types = {})
+      : schema_(std::move(schema)), let_param_types_(std::move(let_types)) {}
 
   // Translates a desugared formula. `orig_free` is the free-variable name
   // order of the original formula (for the free_variables output).
@@ -464,8 +468,10 @@ private:
           fail("FORALL should have been desugared");
         } else if constexpr (std::is_same_v<T, fo_agg>) {
           return translate_aggregation(v);
+        } else if constexpr (std::is_same_v<T, fo_let>) {
+          return translate_let(v);
         } else {
-          fail("unsupported fragment (regex/let/matches/substring at top)");
+          fail("unsupported fragment (regex/matches/substring at top)");
         }
       },
       f.node);
@@ -500,7 +506,81 @@ private:
     return mk_exformula(exformula{ex_aggregation{info, body}});
   }
 
+  exformula_ptr translate_let(const parser::fo_let &l) {
+    if (l.kind == parser::let_kind::frz)
+      fail("FRZ is not supported by the backend");
+    const bool past = (l.kind == parser::let_kind::let_past);
+
+    std::vector<std::string> params;
+    for (const auto &a : l.head.args) {
+      const auto *var = std::get_if<parser::term_var>(&a.node);
+      if (!var)
+        fail("LET parameters must be variables");
+      params.push_back(var->name);
+    }
+    std::size_t arity = params.size();
+
+    // Bound-predicate column types come from the type checker.
+    auto tit = let_param_types_.find(&l);
+    if (tit == let_param_types_.end())
+      fail("internal: LET parameter types unavailable");
+    const std::vector<val_type> &param_types = tit->second;
+
+    // Shadow the parameter names with fresh ids for f1's scope.
+    std::vector<var_id> param_ids;
+    std::vector<std::pair<std::string, std::optional<var_id>>> saved_vars;
+    for (const auto &p : params) {
+      auto old = vmap_.count(p) ? std::optional<var_id>(vmap_[p]) : std::nullopt;
+      saved_vars.emplace_back(p, old);
+      var_id id = ++curr_id_;
+      vmap_[p] = id;
+      param_ids.push_back(id);
+    }
+
+    // Bind the predicate: a fresh id shadowing any signature predicate of the
+    // same name, with the inferred parameter types. LETPAST is recursive, so
+    // it is in scope inside f1; LET is in scope only in f2.
+    auto pkey = std::pair(l.head.name, arity);
+    std::optional<pred_id> saved_pmap =
+      pmap_.count(pkey) ? std::optional<pred_id>(pmap_[pkey]) : std::nullopt;
+    std::optional<std::vector<val_type>> saved_schema =
+      schema_.count(l.head.name)
+        ? std::optional<std::vector<val_type>>(schema_[l.head.name])
+        : std::nullopt;
+    pred_id lid = ++curr_id_;
+    auto bind_pred = [&]() {
+      pmap_[pkey] = lid;
+      schema_[l.head.name] = param_types;
+    };
+
+    if (past)
+      bind_pred();
+    exformula_ptr f1 = translate(*l.bound);
+    if (!past)
+      bind_pred();
+    for (auto &[name, old] : saved_vars) {
+      if (old)
+        vmap_[name] = *old;
+      else
+        vmap_.erase(name);
+    }
+    exformula_ptr f2 = translate(*l.body);
+
+    // Restore the predicate binding.
+    pmap_.erase(pkey);
+    if (saved_pmap)
+      pmap_[pkey] = *saved_pmap;
+    if (saved_schema)
+      schema_[l.head.name] = *saved_schema;
+    else
+      schema_.erase(l.head.name);
+
+    return mk_exformula(
+      exformula{ex_let{past, lid, std::move(param_ids), f1, f2}});
+  }
+
   schema_map schema_;
+  let_param_types_map let_param_types_;
   var_id curr_id_ = 1;
   std::map<std::string, var_id> vmap_;
   std::map<std::pair<std::string, std::size_t>, pred_id> pmap_;

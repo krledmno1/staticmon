@@ -250,12 +250,17 @@ private:
         } else if constexpr (std::is_same_v<T, ex_aggregation>) {
           return "maggregation<" + render_agg_info(v.info) + ", " +
                  render_formula(*v.arg) + ">";
-        } else {  // ex_fused
+        } else if constexpr (std::is_same_v<T, ex_fused>) {
           std::string s = "mfusedsimpleop<simpleops<";
           for (std::size_t i = 0; i < v.sops.size(); ++i)
             s += (i ? ", " : "") + render_sop(v.sops[i]);
           s += ">, " + render_formula(*v.arg) + ">";
           return s;
+        } else {  // ex_let
+          return std::string(v.past ? "mletpast<" : "mlet<") +
+                 std::to_string(v.id) + ", " + render_var_list(v.pred_layout) +
+                 ", " + render_formula(*v.bound) + ", " +
+                 render_formula(*v.body) + ">";
         }
       },
       f.node);

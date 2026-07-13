@@ -168,11 +168,19 @@ struct ex_fused {
   std::vector<simple_op> sops;
   exformula_ptr arg;
 };
+struct ex_let {
+  bool past;                        // LETPAST if true, LET otherwise
+  pred_id id;                       // id of the bound predicate
+  std::vector<var_id> pred_layout;  // PredL: parameter var ids, in order
+  exformula_ptr bound;              // f1 (the definition)
+  exformula_ptr body;               // f2 (uses the bound predicate)
+};
 
 struct exformula {
   std::variant<ex_predicate, ex_builtin_tp, ex_builtin_ts, ex_builtin_tpts,
                ex_and, ex_or, ex_neg, ex_eq, ex_empty_rel, ex_temporal_un,
-               ex_since, ex_once_agg, ex_since_agg, ex_aggregation, ex_fused>
+               ex_since, ex_once_agg, ex_since_agg, ex_aggregation, ex_fused,
+               ex_let>
     node;
 };
 

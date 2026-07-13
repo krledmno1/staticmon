@@ -123,17 +123,23 @@ int main(int argc, char **argv) {
   auto orig_free = compile::free_vars(formula);
 
   // Order matches monpoly's check_formula: check_wff, then type inference.
-  // Well-formedness (intervals / bounded future) on the original formula.
+  // Well-formedness (intervals / bounded future / LET params).
   if (auto err = compile::check_wff(formula)) {
     std::cerr << "Fatal error: exception Failure(\"" << *err << "\")\n";
     return 1;
   }
 
+  // Desugar first: type inference and translation both run on the desugared
+  // formula, so LET-node pointers (which key the inferred parameter types)
+  // are consistent between the two stages. Desugaring preserves variable
+  // types, so -sigout parity is unaffected.
+  auto desugared = compile::desugar(formula);
+
   // Stage 2: type inference (rejects ill-typed like monpoly).
+  compile::type_checker tc(type_sig);
   std::vector<std::pair<std::string, compile::tcst>> var_types;
   try {
-    compile::type_checker tc(type_sig);
-    var_types = tc.check(formula, orig_free);
+    var_types = tc.check(desugared, orig_free);
   } catch (const compile::type_error &e) {
     std::cerr << "Fatal error: exception Failure(\"" << e.message << "\")\n";
     return 1;
@@ -147,8 +153,7 @@ int main(int argc, char **argv) {
     return 0;
   }
 
-  // Stage 3: desugar, then monitorability.
-  auto desugared = compile::desugar(formula);
+  // Stage 3: monitorability.
   auto mon = compile::is_monitorable(desugared);
 
   if (mode_check) {
@@ -165,9 +170,27 @@ int main(int argc, char **argv) {
     return 1;
   }
 
+  // LET/LETPAST parameter types (tcst -> val_type) for the translator.
+  compile::let_param_types_map let_types;
+  for (const auto &[node, tys] : tc.let_param_types()) {
+    std::vector<compile::val_type> vts;
+    for (compile::tcst t : tys) {
+      switch (t) {
+        case compile::tcst::t_int: vts.push_back(compile::val_type::t_int); break;
+        case compile::tcst::t_str: vts.push_back(compile::val_type::t_str); break;
+        case compile::tcst::t_float: vts.push_back(compile::val_type::t_float); break;
+        case compile::tcst::t_regexp:
+          std::cerr << "translation error: LET parameter of type regexp is "
+                       "unsupported\n";
+          return 1;
+      }
+    }
+    let_types[node] = std::move(vts);
+  }
+
   // Stages 4-5: translate + codegen.
   try {
-    compile::translator tr(std::move(schema));
+    compile::translator tr(std::move(schema), std::move(let_types));
     auto translated = tr.run(desugared, orig_free);
     compile::header_emitter emitter;
     auto headers = emitter.emit(translated);

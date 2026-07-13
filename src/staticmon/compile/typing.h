@@ -100,6 +100,14 @@ public:
     return out;
   }
 
+  // Inferred parameter types of each LET/LETPAST predicate, keyed by the AST
+  // node (populated during check()). The translator needs these because a
+  // bound predicate's column types are not in the signature.
+  const std::map<const parser::fo_let *, std::vector<tcst>> &
+  let_param_types() const {
+    return let_param_types_;
+  }
+
 private:
   // ---- type relations (rewriting.ml) ------------------------------------
   // t1 |<=| t2 : t1 is at least as specific as t2.
@@ -363,8 +371,10 @@ private:
           type_check_quant(v.vars, *v.body);
         } else if constexpr (std::is_same_v<T, fo_agg>) {
           type_check_aggreg(v);
+        } else if constexpr (std::is_same_v<T, fo_let>) {
+          type_check_let(v);
         } else {
-          throw type_error{"typing: unsupported construct (let/regex)"};
+          throw type_error{"typing: unsupported construct (regex)"};
         }
       },
       f.node);
@@ -397,6 +407,84 @@ private:
       if (k == key)
         return tys[i];
     throw type_error{"internal: predicate slot missing"};
+  }
+
+  // LET/LETPAST typing (rewriting.ml Let/LetPast): f1 is typed with only the
+  // parameters in scope (they are exactly its free variables); the inferred
+  // parameter types become the bound predicate's signature, under which f2 is
+  // typed. Records the parameter types (keyed by the AST node) for the
+  // translator, which needs the bound predicate's concrete column types.
+  void type_check_let(const parser::fo_let &l) {
+    if (l.kind == parser::let_kind::frz)
+      throw type_error{"typing: FRZ is not supported"};
+    std::vector<std::string> params;
+    for (const auto &a : l.head.args) {
+      const auto *var = std::get_if<parser::term_var>(&a.node);
+      if (!var)
+        throw type_error{"LET parameters must be variables"};
+      params.push_back(var->name);
+    }
+    pred_key key{l.head.name, params.size()};
+    const bool past = (l.kind == parser::let_kind::let_past);
+
+    // f1 scope: a fresh Any per parameter, each distinct.
+    std::vector<std::pair<std::string, type_val>> pvars;
+    for (const auto &p : params) {
+      int m = max_symbol_in(sch_, pvars);
+      pvars.insert(pvars.begin(), {p, type_val::symb(tcl::any, m + 1)});
+    }
+    auto param_sig = [&]() {
+      std::vector<type_val> s;
+      for (const auto &p : params)
+        for (const auto &vt : pvars)
+          if (vt.first == p) { s.push_back(vt.second); break; }
+      return s;
+    };
+
+    // Shadow any existing schema entry for the bound predicate.
+    std::optional<std::vector<type_val>> shadowed;
+    auto sit = std::find_if(sch_.begin(), sch_.end(),
+                            [&](auto &e) { return e.first == key; });
+    auto set_sig = [&](std::vector<type_val> sig) {
+      if (sit != sch_.end())
+        sit->second = std::move(sig);
+      else {
+        sch_.push_back({key, std::move(sig)});
+        sit = std::prev(sch_.end());
+      }
+    };
+    if (sit != sch_.end())
+      shadowed = sit->second;
+
+    if (past)
+      set_sig(param_sig());  // predicate in scope inside f1 (recursive)
+
+    auto outer_vars = vars_;
+    vars_ = pvars;
+    type_check_formula(*l.bound);
+
+    // Parameter types after f1 (default unresolved to Float, as check_syntax).
+    std::vector<tcst> ptypes;
+    for (const auto &p : params) {
+      type_val t = assoc(p);
+      ptypes.push_back(t.is_cst ? t.cst : tcst::t_float);
+    }
+    let_param_types_[&l] = ptypes;
+    std::vector<type_val> concrete;
+    for (tcst c : ptypes)
+      concrete.push_back(type_val::of_cst(c));
+    set_sig(concrete);  // signature for f2 (and, for LETPAST, refines f1's)
+
+    vars_ = outer_vars;
+    type_check_formula(*l.body);
+
+    // Restore the schema entry.
+    sit = std::find_if(sch_.begin(), sch_.end(),
+                       [&](auto &e) { return e.first == key; });
+    if (shadowed)
+      sit->second = *shadowed;
+    else if (sit != sch_.end())
+      sch_.erase(sit);
   }
 
   void type_check_quant(const std::vector<std::string> &bound,
@@ -510,6 +598,7 @@ private:
 
   static std::string term_string(const parser::term &t);
 
+  std::map<const parser::fo_let *, std::vector<tcst>> let_param_types_;
   std::vector<std::pair<pred_key, std::vector<type_val>>> sch_;
   std::vector<std::pair<std::string, type_val>> vars_;
 };

@@ -206,6 +206,11 @@ namespace mon_detail {
           if (const auto *n = std::get_if<fo_neg>(&v.l->node))
             f1p = &*n->arg;
           return is_monitorable(*f1p);
+        } else if constexpr (std::is_same_v<T, fo_let>) {
+          auto m1 = is_monitorable(*v.bound);
+          if (!m1.ok)
+            return m1;
+          return is_monitorable(*v.body);
         } else {
           return no("regex not monitorable (unverified)");
         }
@@ -285,6 +290,8 @@ namespace mon_detail {
         else if constexpr (std::is_same_v<T, fo_temporal_bin>)
           return check_interval(v.intv) && check_intervals(*v.l) &&
                  check_intervals(*v.r);
+        else if constexpr (std::is_same_v<T, fo_let>)
+          return check_intervals(*v.bound) && check_intervals(*v.body);
         else
           return true;  // regex: not in fragment
       },
@@ -323,8 +330,52 @@ namespace mon_detail {
             return ub_finite(v.intv) && check_bounds(*v.l) &&
                    check_bounds(*v.r);
           return check_bounds(*v.l) && check_bounds(*v.r);
+        } else if constexpr (std::is_same_v<T, fo_let>) {
+          return check_bounds(*v.bound) && check_bounds(*v.body);
         } else {
           return true;
+        }
+      },
+      f.node);
+  }
+
+  // check_let (rewriting.ml): LET/LETPAST parameters must be distinct
+  // variables and coincide exactly with the free variables of the definition.
+  inline std::optional<std::string> check_let(const formula &f) {
+    if (const auto *l = std::get_if<fo_let>(&f.node)) {
+      std::vector<std::string> params;
+      for (const auto &a : l->head.args) {
+        if (!std::holds_alternative<term_var>(a.node))
+          return "[Rewriting.check_let] LET parameters must be variables";
+        params.push_back(std::get<term_var>(a.node).name);
+      }
+      auto fv1 = free_vars(*l->bound);
+      if (fv1.size() != params.size() || !subset(fv1, params) ||
+          !subset(params, fv1))
+        return "[Rewriting.check_let] LET parameters must coincide with the "
+               "free variables of the definition";
+      if (auto e = check_let(*l->bound))
+        return e;
+      return check_let(*l->body);
+    }
+    // recurse structurally
+    return std::visit(
+      [&](const auto &v) -> std::optional<std::string> {
+        using T = std::remove_cvref_t<decltype(v)>;
+        if constexpr (std::is_same_v<T, fo_neg>)
+          return check_let(*v.arg);
+        else if constexpr (std::is_same_v<T, fo_quant> ||
+                           std::is_same_v<T, fo_agg>)
+          return check_let(*v.body);
+        else if constexpr (std::is_same_v<T, fo_temporal_un>)
+          return check_let(*v.body);
+        else if constexpr (std::is_same_v<T, fo_prop> ||
+                           std::is_same_v<T, fo_temporal_bin>) {
+          if (auto e = check_let(*v.l))
+            return e;
+          return check_let(*v.r);
+        } else {
+          return std::nullopt;
         }
       },
       f.node);
@@ -334,14 +385,15 @@ namespace mon_detail {
 using mon_detail::check_bounds;
 using mon_detail::check_interval;
 using mon_detail::check_intervals;
+using mon_detail::check_let;
 
 inline monitorability is_monitorable(const parser::formula &f) {
   return mon_detail::is_monitorable(f);
 }
 
-// check_wff subset relevant to the backend fragment (LET/aggregation-specific
-// well-formedness omitted; those constructs are handled/rejected elsewhere).
 inline std::optional<std::string> check_wff(const parser::formula &f) {
+  if (auto e = check_let(f))
+    return e;
   if (!check_intervals(f))
     return "[Rewriting.check_wff] The formula contains a negative or empty "
            "interval";
