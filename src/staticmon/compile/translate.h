@@ -1,0 +1,510 @@
+#pragma once
+// Stage 4 (translation): desugared parser::formula -> exformula IR, mirroring
+// monpoly-exp/src/explicitmon.ml translate_formula / transform_fused_op
+// (see docs/explicitmon-pipeline.md §4). Assumes the input is desugared
+// (no Implies/Equiv/ForAll/Always/PastAlways) and monitorable; callers gate
+// on monitorability (stage 3) first.
+//
+// Deviation D1: Div -> tdiv, Mod -> tmod, F2i/I2f kept as tf2i/ti2f (the C++
+// backend supports all of these; explicitmon.ml has bugs here). This is the
+// only intentional structural divergence from monpoly-exp; the header-diff
+// corpus avoids these constructs and they are checked behaviorally instead.
+
+#include <algorithm>
+#include <map>
+#include <optional>
+#include <staticmon/compile/exformula.h>
+#include <staticmon/compile/free_vars.h>
+#include <staticmon/parser/formula_ast.h>
+#include <stdexcept>
+#include <string>
+#include <variant>
+#include <vector>
+
+namespace staticmon::compile {
+
+struct translate_error {
+  std::string message;
+};
+
+// Signature lookup: predicate name -> ordered argument types.
+using schema_map = std::map<std::string, std::vector<val_type>>;
+
+class translator {
+public:
+  explicit translator(schema_map schema) : schema_(std::move(schema)) {}
+
+  // Translates a desugared formula. `orig_free` is the free-variable name
+  // order of the original formula (for the free_variables output).
+  translated run(const parser::formula &f,
+                 const std::vector<std::string> &orig_free) {
+    curr_id_ = 1;  // matches explicitmon's module-init incr (ids start at 2)
+    exformula_ptr root = translate(f);
+    translated out;
+    out.formula = root;
+    for (const auto &name : orig_free)
+      out.free_variables.push_back(lookup_var(name));
+    // Pred_map fold order: descending (name, arity).
+    std::vector<pred_info> preds = predicates_;
+    std::sort(preds.begin(), preds.end(), [](const auto &a, const auto &b) {
+      if (a.name != b.name)
+        return a.name > b.name;
+      return a.arity > b.arity;
+    });
+    out.predicates = std::move(preds);
+    return out;
+  }
+
+private:
+  [[noreturn]] void fail(std::string m) {
+    throw translate_error{std::move(m)};
+  }
+
+  // ---- id management (var and pred share one counter) --------------------
+  var_id maybe_add_var(const std::string &name) {
+    auto it = vmap_.find(name);
+    if (it != vmap_.end())
+      return it->second;
+    var_id id = ++curr_id_;
+    vmap_[name] = id;
+    return id;
+  }
+  var_id lookup_var(const std::string &name) {
+    auto it = vmap_.find(name);
+    if (it == vmap_.end())
+      fail("free variable not found: " + name);
+    return it->second;
+  }
+
+  pred_id maybe_add_pred(const std::string &name, std::size_t arity,
+                         const std::vector<val_type> &tys) {
+    auto key = std::pair(name, arity);
+    auto it = pmap_.find(key);
+    if (it != pmap_.end())
+      return it->second;
+    pred_id id = ++curr_id_;
+    pmap_[key] = id;
+    predicates_.push_back(pred_info{name, arity, id, tys});
+    return id;
+  }
+
+  // ---- terms -------------------------------------------------------------
+  ex_term translate_term(const parser::term &t) {
+    using namespace parser;
+    return std::visit(
+      [&](const auto &v) -> ex_term {
+        using T = std::remove_cvref_t<decltype(v)>;
+        if constexpr (std::is_same_v<T, term_var>) {
+          return ex_term{ex_tvar{maybe_add_var(v.name)}};
+        } else if constexpr (std::is_same_v<T, term_cst>) {
+          return ex_term{ex_tcst{v.value}};
+        } else if constexpr (std::is_same_v<T, term_unary>) {
+          ex_term_unop op;
+          switch (v.op) {
+            case term_unop::f2i: op = ex_term_unop::f2i; break;
+            case term_unop::i2f: op = ex_term_unop::i2f; break;
+            case term_unop::uminus: op = ex_term_unop::uminus; break;
+            default: fail("unsupported unary term (string/date conversion)");
+          }
+          return ex_term{ex_tunary{op, mk_ex_term(translate_term(*v.arg))}};
+        } else {  // term_binary
+          ex_term_binop op;
+          switch (v.op) {
+            case term_binop::plus: op = ex_term_binop::plus; break;
+            case term_binop::minus: op = ex_term_binop::minus; break;
+            case term_binop::mult: op = ex_term_binop::mult; break;
+            case term_binop::div: op = ex_term_binop::div; break;
+            case term_binop::mod: op = ex_term_binop::mod; break;
+          }
+          return ex_term{ex_tbinary{op, mk_ex_term(translate_term(*v.l)),
+                                    mk_ex_term(translate_term(*v.r))}};
+        }
+      },
+      t.node);
+  }
+
+  static val_type cst_val_type(const parser::constant &c) {
+    if (std::holds_alternative<parser::cst_int>(c))
+      return val_type::t_int;
+    if (std::holds_alternative<parser::cst_float>(c))
+      return val_type::t_float;
+    return val_type::t_str;  // cst_str; regexp unsupported upstream
+  }
+
+  // ---- predicates --------------------------------------------------------
+  std::vector<ex_predarg> translate_pred_args(const std::string &name,
+                                              const std::vector<parser::term> &terms,
+                                              std::vector<val_type> &out_tys) {
+    auto sit = schema_.find(name);
+    if (sit == schema_.end())
+      fail("predicate not in signature: " + name);
+    const auto &slot_tys = sit->second;
+    if (slot_tys.size() != terms.size())
+      fail("arity mismatch for predicate: " + name);
+    std::vector<ex_predarg> args;
+    for (std::size_t i = 0; i < terms.size(); ++i) {
+      const auto &term = terms[i];
+      if (const auto *var = std::get_if<parser::term_var>(&term.node)) {
+        val_type ty = slot_tys[i];
+        args.push_back(ex_pvar{ty, maybe_add_var(var->name)});
+        out_tys.push_back(ty);
+      } else if (const auto *cst = std::get_if<parser::term_cst>(&term.node)) {
+        args.push_back(ex_pcst{cst->value});
+        out_tys.push_back(cst_val_type(cst->value));
+      } else {
+        fail("predicate argument must be a variable or constant");
+      }
+    }
+    return args;
+  }
+
+  exformula_ptr translate_pred(const parser::fo_pred &p) {
+    std::vector<val_type> tys;
+    auto args = translate_pred_args(p.name, p.args, tys);
+    std::size_t arity = p.args.size();
+    if (p.name == "tp" && arity == 1)
+      return mk_exformula(exformula{ex_builtin_tp{args[0]}});
+    if (p.name == "ts" && arity == 1)
+      return mk_exformula(exformula{ex_builtin_ts{args[0]}});
+    if (p.name == "tpts" && arity == 2)
+      return mk_exformula(exformula{ex_builtin_tpts{args[0], args[1]}});
+    pred_id id = maybe_add_pred(p.name, arity, tys);
+    return mk_exformula(exformula{ex_predicate{id, std::move(args)}});
+  }
+
+  // ---- intervals ---------------------------------------------------------
+  static ex_bound translate_bound(const parser::interval_bound &b, bool upper) {
+    using namespace parser;
+    if (std::holds_alternative<bnd_inf>(b))
+      return ex_inf{};
+    if (const auto *o = std::get_if<bnd_open>(&b)) {
+      // open: lower -> +1, upper -> -1
+      long long n = std::stoll(o->value.dec);
+      n += upper ? -1 : 1;
+      return ex_bnd{big_int::normalize(std::to_string(n))};
+    }
+    const auto &c = std::get<bnd_closed>(b);
+    return ex_bnd{c.value};
+  }
+  static ex_interval translate_interval(const parser::interval &i) {
+    return ex_interval{translate_bound(i.lower, false),
+                       translate_bound(i.upper, true)};
+  }
+
+  // ---- fused-op guards (explicitmon.ml is_and_relop/is_special_case/...) --
+  static bool subset(const std::vector<std::string> &a,
+                     const std::vector<std::string> &b) {
+    for (const auto &x : a)
+      if (std::find(b.begin(), b.end(), x) == b.end())
+        return false;
+    return true;
+  }
+
+  static bool is_and_relop(const parser::formula &f) {
+    using namespace parser;
+    if (const auto *c = std::get_if<fo_cmp>(&f.node)) {
+      (void) c;
+      return true;  // Equal/Less/LessEq/Substring
+    }
+    if (std::holds_alternative<fo_matches>(f.node))
+      return true;
+    if (const auto *n = std::get_if<fo_neg>(&f.node)) {
+      const auto &inner = n->arg->node;
+      return std::holds_alternative<fo_cmp>(inner) ||
+             std::holds_alternative<fo_matches>(inner);
+    }
+    return false;
+  }
+
+  static bool is_special_case(const std::vector<std::string> &fv1,
+                              const parser::formula &f) {
+    using namespace parser;
+    if (const auto *c = std::get_if<fo_cmp>(&f.node)) {
+      if (c->op == cmp_op::equal) {
+        bool l_var = std::holds_alternative<term_var>(c->l.node);
+        bool r_var = std::holds_alternative<term_var>(c->r.node);
+        if (l_var && subset(term_vars(c->r), fv1))
+          return true;
+        if (r_var && subset(term_vars(c->l), fv1))
+          return true;
+        return subset(free_vars(f), fv1);
+      }
+      // Less / LessEq / Substring
+      return subset(free_vars(f), fv1);
+    }
+    if (const auto *m = std::get_if<fo_matches>(&f.node)) {
+      if (!subset(term_vars(m->l), fv1) || !subset(term_vars(m->r), fv1))
+        return false;
+      for (const auto &o : m->opts) {
+        if (!o)
+          continue;
+        if (std::holds_alternative<term_var>(o->node))
+          continue;
+        if (!subset(term_vars(*o), fv1))
+          return false;
+      }
+      return true;
+    }
+    if (std::holds_alternative<fo_neg>(f.node))
+      return subset(free_vars(f), fv1);
+    return false;
+  }
+
+  bool is_special_and(const parser::formula &f1, const parser::formula &f2) {
+    return is_and_relop(f2) && is_special_case(free_vars(f1), f2);
+  }
+
+  // is_safe_assignment f1 (Equal x y)
+  static bool is_safe_assignment(const std::vector<std::string> &fv1,
+                                 const parser::fo_cmp &eq) {
+    using namespace parser;
+    const bool l_var = std::holds_alternative<term_var>(eq.l.node);
+    const bool r_var = std::holds_alternative<term_var>(eq.r.node);
+    auto in = [&](const std::string &n) {
+      return std::find(fv1.begin(), fv1.end(), n) != fv1.end();
+    };
+    if (l_var && r_var) {
+      const auto &a = std::get<term_var>(eq.l.node).name;
+      const auto &b = std::get<term_var>(eq.r.node).name;
+      return in(a) == !in(b);
+    }
+    if (l_var) {
+      const auto &a = std::get<term_var>(eq.l.node).name;
+      return !in(a) && subset(term_vars(eq.r), fv1);
+    }
+    if (r_var) {
+      const auto &b = std::get<term_var>(eq.r.node).name;
+      return !in(b) && subset(term_vars(eq.l), fv1);
+    }
+    return false;
+  }
+
+  // ---- fused-op transformation ------------------------------------------
+  exformula_ptr transform_fused_op(std::vector<simple_op> sops,
+                                   const parser::formula &f) {
+    using namespace parser;
+    if (const auto *q = std::get_if<fo_quant>(&f.node); q && !q->universal) {
+      // Exists: fresh (shadowing) ids for bound vars, prepend MExists.
+      std::vector<var_id> new_ids;
+      std::vector<std::pair<std::string, std::optional<var_id>>> saved;
+      for (const auto &name : q->vars) {
+        auto old = vmap_.count(name) ? std::optional<var_id>(vmap_[name])
+                                     : std::nullopt;
+        saved.emplace_back(name, old);
+        var_id id = ++curr_id_;
+        vmap_[name] = id;
+        new_ids.push_back(id);
+      }
+      std::vector<simple_op> next = std::move(sops);
+      next.insert(next.begin(), sop_exists{new_ids});
+      exformula_ptr res = transform_fused_op(std::move(next), *q->body);
+      for (auto &[name, old] : saved) {
+        if (old)
+          vmap_[name] = *old;
+        else
+          vmap_.erase(name);
+      }
+      return res;
+    }
+    if (const auto *a = std::get_if<fo_prop>(&f.node);
+        a && a->op == prop_binop::and_) {
+      const auto &f1 = *a->l;
+      const auto &f2 = *a->r;
+      if (const auto *eq = std::get_if<fo_cmp>(&f2.node);
+          eq && eq->op == cmp_op::equal && is_special_and(f1, f2) &&
+          is_safe_assignment(free_vars(f1), *eq)) {
+        return translate_safe_assignment(std::move(sops), f1, *eq);
+      }
+      if (is_special_and(f1, f2)) {
+        return translate_constraint(std::move(sops), f1, f2);
+      }
+    }
+    // base case
+    exformula_ptr inner = translate(f);
+    return mk_exformula(exformula{ex_fused{std::move(sops), inner}});
+  }
+
+  exformula_ptr translate_safe_assignment(std::vector<simple_op> sops,
+                                          const parser::formula &f1,
+                                          const parser::fo_cmp &eq) {
+    using namespace parser;
+    auto fv1 = free_vars(f1);
+    auto in = [&](const std::string &n) {
+      return std::find(fv1.begin(), fv1.end(), n) != fv1.end();
+    };
+    simple_op sop = [&]() -> simple_op {
+      const bool l_var = std::holds_alternative<term_var>(eq.l.node);
+      const bool r_var = std::holds_alternative<term_var>(eq.r.node);
+      if (l_var && r_var) {
+        const auto &x = std::get<term_var>(eq.l.node).name;
+        const auto &y = std::get<term_var>(eq.r.node).name;
+        bool x_free = in(x);
+        var_id xi = maybe_add_var(x);
+        var_id yi = maybe_add_var(y);
+        if (x_free)
+          return sop_and_assign{yi, ex_term{ex_tvar{xi}}};
+        return sop_and_assign{xi, ex_term{ex_tvar{yi}}};
+      }
+      // t = Var x  or  Var x = t
+      if (l_var) {
+        var_id xi = maybe_add_var(std::get<term_var>(eq.l.node).name);
+        return sop_and_assign{xi, translate_term(eq.r)};
+      }
+      var_id xi = maybe_add_var(std::get<term_var>(eq.r.node).name);
+      return sop_and_assign{xi, translate_term(eq.l)};
+    }();
+    sops.insert(sops.begin(), std::move(sop));
+    return transform_fused_op(std::move(sops), f1);
+  }
+
+  exformula_ptr translate_constraint(std::vector<simple_op> sops,
+                                     const parser::formula &f1,
+                                     const parser::formula &f2) {
+    using namespace parser;
+    auto make_rel = [&](bool neg, const fo_cmp &c) -> simple_op {
+      cst_type op = c.op == cmp_op::equal      ? cst_type::eq
+                    : c.op == cmp_op::less      ? cst_type::less
+                    : c.op == cmp_op::less_eq   ? cst_type::less_eq
+                                                : cst_type::eq;
+      if (c.op == cmp_op::substring)
+        fail("SUBSTRING not supported by the backend");
+      return sop_and_rel{neg, op, translate_term(c.l), translate_term(c.r)};
+    };
+    simple_op sop = [&]() -> simple_op {
+      if (const auto *c = std::get_if<fo_cmp>(&f2.node))
+        return make_rel(false, *c);
+      if (const auto *n = std::get_if<fo_neg>(&f2.node))
+        if (const auto *c = std::get_if<fo_cmp>(&n->arg->node))
+          return make_rel(true, *c);
+      fail("not a constraint");
+    }();
+    sops.insert(sops.begin(), std::move(sop));
+    return transform_fused_op(std::move(sops), f1);
+  }
+
+  // ---- main translation --------------------------------------------------
+  static bool is_neg_eq_same_var(const parser::formula &f) {
+    using namespace parser;
+    if (const auto *n = std::get_if<fo_neg>(&f.node))
+      if (const auto *c = std::get_if<fo_cmp>(&n->arg->node))
+        if (c->op == cmp_op::equal) {
+          const auto *a = std::get_if<term_var>(&c->l.node);
+          const auto *b = std::get_if<term_var>(&c->r.node);
+          return a && b && a->name == b->name;
+        }
+    return false;
+  }
+
+  exformula_ptr translate(const parser::formula &f) {
+    using namespace parser;
+    return std::visit(
+      [&](const auto &v) -> exformula_ptr {
+        using T = std::remove_cvref_t<decltype(v)>;
+        if constexpr (std::is_same_v<T, fo_pred>) {
+          return translate_pred(v);
+        } else if constexpr (std::is_same_v<T, fo_temporal_un>) {
+          auto intv = translate_interval(v.intv);
+          switch (v.op) {
+            case temporal_unop::prev:
+            case temporal_unop::next:
+            case temporal_unop::once:
+            case temporal_unop::eventually: {
+              ex_temporal_un::kind k =
+                v.op == temporal_unop::prev   ? ex_temporal_un::kind::prev
+                : v.op == temporal_unop::next ? ex_temporal_un::kind::next
+                : v.op == temporal_unop::once ? ex_temporal_un::kind::once
+                                              : ex_temporal_un::kind::eventually;
+              return mk_exformula(exformula{
+                ex_temporal_un{k, intv, translate(*v.body)}});
+            }
+            default:
+              fail("temporal operator should have been desugared");
+          }
+        } else if constexpr (std::is_same_v<T, fo_temporal_bin>) {
+          auto intv = translate_interval(v.intv);
+          bool future = v.op == temporal_binop::until;
+          if (v.op != temporal_binop::since && v.op != temporal_binop::until)
+            fail("TRIGGER/RELEASE not supported by the backend");
+          // Since(Neg f1, f2) -> negated left operand.
+          const auto *neg = std::get_if<fo_neg>(&v.l->node);
+          bool negated = neg != nullptr;
+          exformula_ptr l = translate(negated ? *neg->arg : *v.l);
+          exformula_ptr r = translate(*v.r);
+          return mk_exformula(exformula{ex_since{future, negated, intv, l, r}});
+        } else if constexpr (std::is_same_v<T, fo_prop>) {
+          if (v.op == prop_binop::or_) {
+            return mk_exformula(exformula{
+              ex_or{translate(*v.l), translate(*v.r)}});
+          }
+          if (v.op == prop_binop::and_) {
+            const auto &f1 = *v.l;
+            const auto &f2 = *v.r;
+            if (is_special_and(f1, f2))
+              return transform_fused_op({}, f);
+            if (const auto *n = std::get_if<fo_neg>(&f2.node))
+              return mk_exformula(exformula{
+                ex_and{join_type::anti_join, translate(f1),
+                       translate(*n->arg)}});
+            return mk_exformula(exformula{
+              ex_and{join_type::nat_join, translate(f1), translate(f2)}});
+          }
+          fail("propositional operator should have been desugared");
+        } else if constexpr (std::is_same_v<T, fo_cmp>) {
+          if (v.op == cmp_op::equal)
+            return mk_exformula(exformula{
+              ex_eq{translate_term(v.l), translate_term(v.r)}});
+          fail("bare comparison is not monitorable");
+        } else if constexpr (std::is_same_v<T, fo_neg>) {
+          if (is_neg_eq_same_var(f))
+            return mk_exformula(exformula{ex_empty_rel{}});
+          return mk_exformula(exformula{ex_neg{translate(*v.arg)}});
+        } else if constexpr (std::is_same_v<T, fo_quant>) {
+          if (!v.universal)
+            return transform_fused_op({}, f);
+          fail("FORALL should have been desugared");
+        } else if constexpr (std::is_same_v<T, fo_agg>) {
+          return translate_aggregation(v);
+        } else {
+          fail("unsupported fragment (regex/let/matches/substring at top)");
+        }
+      },
+      f.node);
+  }
+
+  exformula_ptr translate_aggregation(const parser::fo_agg &a) {
+    // Translate body first (populates vmap with agg/group-by/inner vars).
+    exformula_ptr body = translate(*a.body);
+    var_id agg_id = lookup_var(a.agg_var);
+    std::vector<var_id> gids;
+    for (const auto &g : a.group_by)
+      gids.push_back(lookup_var(g));
+    // Restrict the variable environment to the group-by vars, then add the
+    // (fresh) result variable (explicitmon: filter_vars then maybe_add_var).
+    std::map<std::string, var_id> restricted;
+    for (const auto &g : a.group_by)
+      restricted[g] = vmap_[g];
+    vmap_ = std::move(restricted);
+    var_id res_id = maybe_add_var(a.res_var);
+    ex_aggreg_info info{res_id, a.op, agg_id, gids};
+
+    if (auto *once = std::get_if<ex_temporal_un>(&body->node);
+        once && once->k == ex_temporal_un::kind::once) {
+      return mk_exformula(exformula{
+        ex_once_agg{info, once->intv, once->arg}});
+    }
+    if (auto *since = std::get_if<ex_since>(&body->node);
+        since && !since->future) {
+      return mk_exformula(exformula{
+        ex_since_agg{info, since->negated, since->intv, since->l, since->r}});
+    }
+    return mk_exformula(exformula{ex_aggregation{info, body}});
+  }
+
+  schema_map schema_;
+  var_id curr_id_ = 1;
+  std::map<std::string, var_id> vmap_;
+  std::map<std::pair<std::string, std::size_t>, pred_id> pmap_;
+  std::vector<pred_info> predicates_;
+};
+
+}  // namespace staticmon::compile

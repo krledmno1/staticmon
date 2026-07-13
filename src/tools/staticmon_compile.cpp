@@ -1,0 +1,107 @@
+// Native replacement for `monpoly-exp -explicitmon`: parse a signature and a
+// formula, then emit formula_in.h + formula_csts.h. Stages: parse (done) ->
+// desugar -> translate -> codegen. Typing and monitorability checks are not
+// yet wired in (see docs/explicitmon-pipeline.md); callers should feed
+// monitorable, well-typed formulas for now.
+//
+// Usage:
+//   staticmon_compile -sig S.sig -formula F.mfotl [-prefix DIR]
+// With -prefix, writes DIR/formula_in.h and DIR/formula_csts.h; otherwise
+// prints formula_in.h, a line "//---CSTS---", then formula_csts.h to stdout.
+
+#include <fstream>
+#include <iostream>
+#include <sstream>
+#include <staticmon/compile/desugar.h>
+#include <staticmon/compile/emit_headers.h>
+#include <staticmon/compile/translate.h>
+#include <staticmon/parser/formula_parser.h>
+#include <staticmon/parser/sig_parser.h>
+#include <string>
+
+using namespace staticmon;
+
+static std::string read_file(const std::string &path) {
+  std::ifstream in(path, std::ios::binary);
+  std::ostringstream ss;
+  ss << in.rdbuf();
+  return ss.str();
+}
+
+static compile::val_type conv_type(parser::sig_type t) {
+  switch (t) {
+    case parser::sig_type::t_int: return compile::val_type::t_int;
+    case parser::sig_type::t_str: return compile::val_type::t_str;
+    case parser::sig_type::t_float: return compile::val_type::t_float;
+    case parser::sig_type::t_regexp:
+      throw std::runtime_error("regexp predicate types unsupported");
+  }
+  throw std::runtime_error("bad sig type");
+}
+
+int main(int argc, char **argv) {
+  std::string sig_path, formula_path, prefix;
+  for (int i = 1; i < argc; ++i) {
+    std::string a = argv[i];
+    auto next = [&]() { return (i + 1 < argc) ? argv[++i] : ""; };
+    if (a == "-sig")
+      sig_path = next();
+    else if (a == "-formula")
+      formula_path = next();
+    else if (a == "-prefix" || a == "-explicitmon_prefix")
+      prefix = next();
+    else if (a == "-explicitmon")
+      continue;
+  }
+  if (sig_path.empty() || formula_path.empty()) {
+    std::cerr << "usage: staticmon_compile -sig S -formula F [-prefix DIR]\n";
+    return 2;
+  }
+
+  auto sig_res = parser::sig_parser::parse(read_file(sig_path));
+  if (auto *err = std::get_if<parser::sig_error>(&sig_res)) {
+    std::cerr << "signature error: " << err->message << "\n";
+    return 1;
+  }
+  compile::schema_map schema;
+  try {
+    for (const auto &p : std::get<parser::signature>(sig_res)) {
+      std::vector<compile::val_type> tys;
+      for (const auto &a : p.attrs)
+        tys.push_back(conv_type(a.type));
+      schema[p.name] = std::move(tys);
+    }
+  } catch (const std::exception &e) {
+    std::cerr << "signature error: " << e.what() << "\n";
+    return 1;
+  }
+
+  auto f_res = parser::formula_parser::parse(read_file(formula_path));
+  if (auto *err = std::get_if<parser::parse_error>(&f_res)) {
+    std::cerr << "formula parse error: " << err->message << " at "
+              << err->pos << "\n";
+    return 1;
+  }
+  const auto &formula = std::get<parser::formula>(f_res);
+
+  try {
+    auto orig_free = compile::free_vars(formula);
+    auto desugared = compile::desugar(formula);
+    compile::translator tr(std::move(schema));
+    auto translated = tr.run(desugared, orig_free);
+    compile::header_emitter emitter;
+    auto headers = emitter.emit(translated);
+
+    if (!prefix.empty()) {
+      std::ofstream(prefix + "/formula_in.h") << headers.formula_in;
+      std::ofstream(prefix + "/formula_csts.h") << headers.formula_csts;
+    } else {
+      std::cout << headers.formula_in << "//---CSTS---\n"
+                << headers.formula_csts;
+    }
+  } catch (const compile::translate_error &e) {
+    std::cerr << "translation error: " << e.message << "\n";
+    return 1;
+  }
+  return 0;
+}

@@ -26,3 +26,8 @@ add_executable(parser_dump tools/parser_dump.cpp)
 target_include_directories(parser_dump PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 target_compile_options(parser_dump PRIVATE -Wall -Wextra -Wconversion
                                            -Wsign-conversion)
+
+# Native -explicitmon replacement: parse+desugar+translate+codegen -> headers.
+add_executable(staticmon_compile tools/staticmon_compile.cpp)
+target_include_directories(staticmon_compile PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+target_compile_options(staticmon_compile PRIVATE -Wall -Wextra)
