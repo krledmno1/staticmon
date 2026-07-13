@@ -24,7 +24,43 @@ staging = sys.argv[2]
 os.makedirs(staging, exist_ok=True)
 
 
-def convert_log(raw: str) -> str:
+def parse_sig(sig_text: str):
+    """predicate name -> list of arg types (int/string/float/...)."""
+    types = {}
+    for m in re.finditer(r"(\w+)\s*\(([^)]*)\)", sig_text):
+        args = [a.strip().split(":")[-1].strip()
+                for a in m.group(2).split(",") if a.strip()]
+        types[m.group(1)] = args
+    return types
+
+
+def quote_string_args(events: str, sig_types) -> str:
+    """MonPoly allows unquoted (bareword) string values in traces; staticmon
+    requires them quoted. A predicate is `name (t1) (t2) ...`; quote args at
+    string-typed positions in each of its tuples."""
+    def fix_pred(m):
+        name, tuples_str = m.group(1), m.group(2)
+        if name not in sig_types:
+            return m.group(0)
+        tys = sig_types[name]
+
+        def fix_tuple(tm):
+            argstr = tm.group(1)
+            if not argstr.strip():
+                return "()"
+            args = [a.strip() for a in argstr.split(",")]
+            for i, a in enumerate(args):
+                if i < len(tys) and tys[i] == "string" and a and \
+                        not a.startswith('"'):
+                    args[i] = '"' + a + '"'
+            return "(" + ",".join(args) + ")"
+
+        return name + " " + re.sub(r"\(([^()]*)\)", fix_tuple, tuples_str)
+
+    return re.sub(r"(\w+)\s*((?:\([^()]*\)\s*)+)", fix_pred, events)
+
+
+def convert_log(raw: str, sig_types) -> str:
     """MonPoly trace -> one `@ts events;` per line."""
     # Strip MonPoly '#' line comments before collapsing timepoints onto one
     # line (otherwise a comment would swallow the rest of the collapsed line).
@@ -42,7 +78,14 @@ def convert_log(raw: str) -> str:
         ts = toks[0]
         if not ts.lstrip("-").isdigit():
             continue  # a command (> ... <) or malformed chunk
-        out.append(f"@{ts} {' '.join(toks[1:])};")
+        events = quote_string_args(" ".join(toks[1:]), sig_types)
+        # A present nullary predicate may be written as a bare name (MonPoly
+        # shorthand); staticmon needs `name()`. Add parens when a nullary
+        # predicate name is not already followed by `(`.
+        for p, tys in sig_types.items():
+            if len(tys) == 0:
+                events = re.sub(rf"\b{re.escape(p)}\b(?!\s*\()", p + "()", events)
+        out.append(f"@{ts} {events};")
     return "\n".join(out) + "\n"
 
 
@@ -84,9 +127,10 @@ for d in sorted(os.listdir(tests_dir)):
     if not sig or not log:
         continue
     name = d[:-2]
+    sig_types = parse_sig(open(sig).read())
     conv_log = os.path.join(staging, f"{name}.log")
     with open(conv_log, "w") as f:
-        f.write(convert_log(open(log).read()))
+        f.write(convert_log(open(log).read(), sig_types))
     for i, formula in enumerate(formulas_of(tp)):
         mfotl = os.path.join(staging, f"{name}__{i}.mfotl")
         with open(mfotl, "w") as f:

@@ -37,16 +37,17 @@ while IFS=$'\t' read -r id sig log mfotl; do
   if ! $MP -verified -sig "$sig" -formula "$mfotl" -check 2>&1 | grep -q "is monitorable"; then
     mp_reject=$((mp_reject+1)); continue
   fi
-  # staticmon-build gates the fragment (exit 1) and compiles (exit 2 on error).
-  if ! "$BUILD" -sig "$sig" -formula "$mfotl" --container "$CTR" \
+  # staticmon-build exit code: 1 = staticmon's front-end rejects the formula
+  # (not monitorable / ill-typed / unsupported construct -- out of fragment,
+  # same as monpoly-exp -explicitmon); 2 = the monitor failed to compile.
+  "$BUILD" -sig "$sig" -formula "$mfotl" --container "$CTR" \
         --staticmon-compile "$SC" --cache-dir "$CACHE" -o "$WORK/mon" \
-        >"$WORK/b.log" 2>&1; then
-    if grep -q "NOT monitorable\|not supported\|unsupported" "$WORK/b.log"; then
-      out_of_frag=$((out_of_frag+1))
-    else
-      build_err=$((build_err+1))
-      [ $build_err -le 12 ] && { echo "BUILD ERR $id: $(head -1 "$mfotl")"; grep -m1 "error:" "$WORK/b.log" | head -1; }
-    fi
+        >"$WORK/b.log" 2>&1; rc=$?
+  if [ $rc -eq 1 ]; then
+    out_of_frag=$((out_of_frag+1)); continue
+  elif [ $rc -ne 0 ]; then
+    build_err=$((build_err+1))
+    [ $build_err -le 12 ] && { echo "BUILD ERR $id: $(head -1 "$mfotl")"; grep -m1 "error:" "$WORK/b.log" | head -1; }
     continue
   fi
   docker cp "$WORK/mon" "$CTR:/tmp/mon" >/dev/null
