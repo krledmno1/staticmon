@@ -349,8 +349,12 @@ struct aggregation_impl : get_agg_info<counted_groups, L, T, ResVar, AggTag,
     if constexpr (mp_empty<GroupVars>::value) {
       this->add_result(std::get<agg_var_idx::value>(std::move(row)));
     } else {
-      // TODO: check if we can move here
-      auto &&agg_var = std::get<agg_var_idx::value>(row);
+      // Copy (not reference) the aggregation value into a local before
+      // projecting the group: when the aggregation column is also a group-by
+      // column, projecting the group moves that column, which would otherwise
+      // leave the aggregate reading a moved-from (e.g. empty string) value
+      // (argument evaluation order is unspecified).
+      auto agg_var = std::get<agg_var_idx::value>(row);
       this->add_result(project_row<group_var_idxs>(std::move(row)),
                        std::move(agg_var));
     }
