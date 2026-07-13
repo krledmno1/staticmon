@@ -5,11 +5,11 @@ add_executable(staticmon ${STATICMON_SOURCES})
 target_include_directories(staticmon PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}
                                              ${CMAKE_CURRENT_BINARY_DIR})
 if(USE_JEMALLOC)
-  target_link_libraries(staticmon CONAN_PKG::jemalloc)
+  target_link_libraries(staticmon jemalloc::jemalloc)
 endif()
 
-target_link_libraries(staticmon CONAN_PKG::boost CONAN_PKG::fmt
-                      CONAN_PKG::abseil foonathan::lexy)
+target_link_libraries(staticmon boost::boost fmt::fmt
+                      abseil::abseil foonathan::lexy)
 target_compile_options(staticmon PRIVATE -Wall -Wextra -Wconversion
                                          -Wsign-conversion)
 if(ENABLE_TRACE_TIME)

@@ -23,9 +23,17 @@ set(CMAKE_C_VISIBILITY_PRESET hidden)
 set(CMAKE_CXX_VISIBILITY_PRESET hidden)
 set(CMAKE_VISIBILITY_INLINES_HIDDEN ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+# Conan v1's conan_basic_setup() used to place binaries in <build>/bin; keep
+# that convention (the entrypoint, scripts/staticmon-build and tests rely on it)
+# now that dependencies come from Conan 2 instead.
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
-include(${CMAKE_BINARY_DIR}/conanbuildinfo.cmake)
-conan_basic_setup(TARGETS)
+# Dependencies come from Conan 2 (CMakeDeps generators); the CMakeToolchain
+# file sets CMAKE_PREFIX_PATH so these find_package calls resolve.
+find_package(Boost REQUIRED)
+find_package(fmt REQUIRED)
+find_package(absl REQUIRED)
+find_package(jemalloc REQUIRED)
 
 string(REPLACE "-O2" "-O3" CMAKE_CXX_FLAGS_RELWITHDEBINFO
                "${CMAKE_CXX_FLAGS_RELWITHDEBINFO}")

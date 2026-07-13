@@ -2,13 +2,14 @@
 boost/1.78.0
 abseil/20211102.0
 fmt/9.0.0
-jemalloc/5.2.1
+jemalloc/5.3.0
 
 [generators]
-cmake
+CMakeDeps
+CMakeToolchain
 
 [options]
-boost:header_only=True
-boost:error_code_header_only=True
-boost:without_locale=True
-boost:without_stacktrace=True
+boost/*:header_only=True
+boost/*:error_code_header_only=True
+boost/*:without_locale=True
+boost/*:without_stacktrace=True
