@@ -3,6 +3,7 @@
 #include <absl/container/flat_hash_map.h>
 #include <boost/mp11.hpp>
 #include <cstdint>
+#include <iterator>
 #include <optional>
 #include <staticmon/common/mp_helpers.h>
 #include <staticmon/common/table.h>
@@ -17,6 +18,50 @@ struct min_agg_op;
 struct avg_agg_op;
 struct sum_agg_op;
 struct cnt_agg_op;
+struct med_agg_op;
+
+// Median over a sorted multiset, matching MonPoly (Misc.median / mset_median):
+// mid = (n even) ? n/2-1 : n/2; odd -> values[mid], even -> average of
+// values[mid] and values[mid+1]. Always yields a double. Supports removal so
+// it works for the temporal (Once/Since) aggregation path too.
+template<typename AggVarT>
+struct median_group {
+  static_assert(is_number_type<AggVarT>,
+                "median aggregation only for number types");
+  using ResT = double;
+
+  template<typename AggVarTU>
+  median_group(AggVarTU &&first_event) {
+    values_.emplace(std::forward<AggVarTU>(first_event));
+  }
+
+  template<typename AggVarTU>
+  void add_event(AggVarTU &&val) {
+    values_.emplace(std::forward<AggVarTU>(val));
+  }
+
+  void remove_event(const AggVarT &val) {
+    auto it = values_.find(val);
+    assert(it != values_.end());
+    values_.erase(it);
+  }
+
+  bool empty() const { return values_.empty(); }
+
+  ResT finalize_group() const {
+    std::size_t n = values_.size();
+    assert(n != 0);
+    std::size_t mid = (n % 2 == 0) ? (n / 2 - 1) : (n / 2);
+    auto it = values_.begin();
+    std::advance(it, static_cast<std::ptrdiff_t>(mid));
+    if (n % 2 != 0)
+      return static_cast<double>(*it);
+    AggVarT lo = *it;
+    return (static_cast<double>(lo) + static_cast<double>(*std::next(it))) / 2.0;
+  }
+
+  absl::btree_multiset<AggVarT> values_;
+};
 
 template<typename AggVarT>
 struct simple_combiner {
@@ -111,6 +156,13 @@ struct agg_group<avg_agg_op, AggVarT> {
 
   AggVarT sum_;
   std::size_t counter_;
+};
+
+template<typename AggVarT>
+struct agg_group<med_agg_op, AggVarT> : median_group<AggVarT> {
+  template<typename AggVarTU>
+  agg_group(AggVarTU &&first_event)
+      : median_group<AggVarT>(std::forward<AggVarTU>(first_event)) {}
 };
 
 template<typename GroupType, typename GroupVarT, typename AggVarT>
@@ -221,6 +273,11 @@ template<typename AggVarT>
 struct agg_group_with_remove<min_agg_op, AggVarT>
     : min_max_group_remove<AggVarT, std::less<>> {
   using agg_group_with_remove::min_max_group_remove::min_max_group_remove;
+};
+
+template<typename AggVarT>
+struct agg_group_with_remove<med_agg_op, AggVarT> : median_group<AggVarT> {
+  using agg_group_with_remove::median_group::median_group;
 };
 
 template<typename AggVarT>

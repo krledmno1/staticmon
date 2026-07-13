@@ -472,9 +472,6 @@ private:
   }
 
   exformula_ptr translate_aggregation(const parser::fo_agg &a) {
-    // MED has no backend operator (like explicitmon.ml, which fails on Med).
-    if (a.op == agg_op::med)
-      fail("MED aggregation is not supported by the backend");
     // Translate body first (populates vmap with agg/group-by/inner vars).
     exformula_ptr body = translate(*a.body);
     var_id agg_id = lookup_var(a.agg_var);
