@@ -56,8 +56,17 @@ if((CMAKE_BUILD_TYPE MATCHES RELEASE) OR (CMAKE_BUILD_TYPE MATCHES
   add_compile_options(-march=native)
 endif()
 
+# Treat Apple's clang like upstream clang for compiler-specific flags: CMake
+# reports AppleClang as its own COMPILER_ID, so exact "Clang" matches miss it.
+if(CMAKE_CXX_COMPILER_ID MATCHES "Clang") # matches both "Clang" and "AppleClang"
+  set(IS_CLANG_LIKE TRUE)
+else()
+  set(IS_CLANG_LIKE FALSE)
+endif()
+
+# lld is a Linux / upstream-clang concern; macOS links with the system linker.
 find_program(TEST_LLD ld.lld)
-if(TEST_LLD AND (CMAKE_CXX_COMPILER_ID STREQUAL "Clang"))
+if(TEST_LLD AND IS_CLANG_LIKE AND NOT APPLE)
   add_link_options(-fuse-ld=lld)
 endif()
 
@@ -66,15 +75,19 @@ if(ENABLE_SANITIZERS)
   add_compile_options(-fsanitize=address,undefined)
 endif()
 
-add_link_options(-static-libstdc++)
+# -static-libstdc++ statically links the GNU C++ runtime (Linux). macOS has no
+# libstdc++ (Apple clang uses libc++, a system library), so skip it there.
+if(NOT APPLE)
+  add_link_options(-static-libstdc++)
+endif()
 
 if(ENABLE_FILE_INPUT)
   include(cmake/lexy.cmake)
 endif()
 
-if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
+if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
   add_compile_options(-fdiagnostics-color=always -ftemplate-depth=300000)
-elseif("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
+elseif(IS_CLANG_LIKE)
   add_compile_options(-fcolor-diagnostics)
 endif()
 

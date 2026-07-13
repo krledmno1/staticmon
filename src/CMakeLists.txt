@@ -13,7 +13,7 @@ target_link_libraries(staticmon CONAN_PKG::boost CONAN_PKG::fmt
 target_compile_options(staticmon PRIVATE -Wall -Wextra -Wconversion
                                          -Wsign-conversion)
 if(ENABLE_TRACE_TIME)
-  if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+  if(CMAKE_CXX_COMPILER_ID MATCHES "Clang") # "Clang" or "AppleClang"
     target_compile_options(staticmon PRIVATE -ftime-trace)
   else()
     message(FATAL_ERROR "tracing only works with Clang")
