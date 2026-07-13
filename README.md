@@ -116,7 +116,7 @@ The front-end is differentially tested against the newest MonPoly:
   - `test/behavioral/`      — compiled monitor verdicts vs VeriMon (`monpoly -verified`)
   - `test/monpoly_suite/`   — replays MonPoly's own test corpus (`monpoly-develop/tests`)
                               through staticmon and compares verdicts to VeriMon
-                              (276/276 in-fragment cases match)
+                              (288/288 in-fragment cases match)
 
 ## Notes
 - Has some easy to fix performance regressions.
