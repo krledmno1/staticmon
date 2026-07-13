@@ -173,7 +173,7 @@ struct grouped_state {
 
   template<typename GroupTypeU, typename AggVarTU>
   void add_result(GroupTypeU &&group, AggVarTU &&val) {
-    auto it = groups_.template find(group);
+    auto it = groups_.find(group);
     if (it == groups_.end())
       groups_.emplace(std::forward<GroupTypeU>(group),
                       GroupType(std::forward<AggVarTU>(val)));

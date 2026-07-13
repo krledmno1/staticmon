@@ -91,19 +91,19 @@ private:
     RULE dsl::peek(dsl::lit_c<'\"'>) >> dsl::p<string_arg> |
       dsl::else_
         >> dsl::while_(dsl::ascii::character - dsl::comma - dsl::lit_c<')'>);
-    VALUE lexy::callback<int>([](auto &&) { return 0; });
+    VALUE lexy::noop;  // discard: lexy >= 2025 needs a sink for list productions
   };
 
   struct discard_tuple {
     RULE dsl::parenthesized.opt_list(dsl::p<discard_arg>, dsl::sep(dsl::comma));
-    VALUE lexy::callback<int>([](auto &&) { return 0; });
+    VALUE lexy::noop;  // discard: lexy >= 2025 needs a sink for list productions
   };
 
   struct discard_tup_list {
     RULE dsl::list(dsl::peek_not(dsl::ascii::alpha_digit_underscore /
                                  dsl::semicolon) >>
                    dsl::p<discard_tuple>);
-    VALUE lexy::callback<int>([](auto &&) { return 0; });
+    VALUE lexy::noop;  // discard: lexy >= 2025 needs a sink for list productions
   };
 
   struct pred_name {
@@ -118,9 +118,10 @@ private:
     static void parse_event(lexy::rule_scanner<Context, Reader> &scanner,
                             std::vector<event_data> &tup, arg_types ty) {
       if (ty == INT_TYPE || ty == FLOAT_TYPE) {
-        auto maybe_lexeme = scanner.capture(
+        // lexy >= 2025: capture() requires a token; wrap the while-loop.
+        auto maybe_lexeme = scanner.capture(dsl::token(
           dsl::while_(dsl::ascii::digit / dsl::period / dsl::lit_c<'e'> /
-                      dsl::lit_c<'E'> / dsl::lit_c<'-'>));
+                      dsl::lit_c<'E'> / dsl::lit_c<'-'>)));
         if (!scanner)
           return;
         auto lexeme = maybe_lexeme.value();
@@ -268,7 +269,10 @@ private:
   struct ts_db_parse {
     static constexpr auto whitespace = dsl::ascii::blank / dsl::ascii::newline;
 
-    RULE dsl::at_sign + dsl::p<ts_parse> + dsl::whitespace +
+    // `whitespace` above enables automatic whitespace skipping between tokens
+    // (lexy >= 2025 removed the bare `dsl::whitespace` rule; it is now a
+    // function, and the auto-skip makes an explicit rule redundant).
+    RULE dsl::at_sign + dsl::p<ts_parse> +
       dsl::opt(dsl::peek_not(dsl::semicolon) >> dsl::p<db_parse>) +
       dsl::semicolon + dsl::if_(dsl::ascii::newline) + dsl::eof;
     VALUE lexy::callback<timestamped_database>(
