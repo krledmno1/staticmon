@@ -123,9 +123,11 @@ The front-end is differentially tested against the newest MonPoly:
 - Debug builds can be several orders of magnitude slower to run than release builds.
 - GCC seems to generate better code.
 - The compilation step with Ninja can produce very long compiler warnings.
-- `LetPast`, regex operators (`MATCHF`/`MATCHP`), and `FRZ` are not yet
-  supported by the native front-end (they are out of the `-explicitmon`
-  fragment).
+- Regex operators (`MATCHF`/`MATCHP`), `FRZ`, `SUBSTRING`/`MATCHES`, and the
+  string/date term conversions (`i2s`, `s2i`, `f2s`, `s2f`, `r2s`, `s2r`,
+  `DAY_OF_MONTH`, `MONTH`, `YEAR`, `FORMAT_DATE`) are not yet supported by the
+  native pipeline. `LET`/`LETPAST` and all aggregations (`CNT`/`SUM`/`MIN`/
+  `MAX`/`AVG`/`MED`) are supported.
 - The native monitorability check does not yet apply MonPoly's full rewriting
   (`rr`) pass, so it can be slightly more conservative than `monpoly -check`
   (sound, never unsound).
