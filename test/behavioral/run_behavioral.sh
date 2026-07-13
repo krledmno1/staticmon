@@ -25,6 +25,8 @@ NTP=${5:-40}
 MP=${MONPOLY:-/Users/krle/.opam/4.14.2/bin/monpoly}
 CTR=${CONTAINER:-smbench}
 CACHE=${CACHE:-$HOME/.cache/staticmon-bench-bin}
+# cwd is already this script's dir (test/behavioral) from the cd above.
+BUILD=${BUILD:-"$(cd ../../scripts && pwd)/staticmon-build"}
 mkdir -p "$CACHE"
 WORK=$(mktemp -d); trap 'rm -rf "$WORK"' EXIT
 
@@ -43,38 +45,24 @@ while IFS= read -r formula; do
   total=$((total+1))
   printf '%s' "$formula" > "$WORK/f.mfotl"
 
-  # staticmon front-end: generate headers (also gates monitorability/typing)
-  if ! "$SC" -sig "$WORK/s.sig" -formula "$WORK/f.mfotl" -prefix "$WORK" \
-        >/dev/null 2>"$WORK/sc_err.txt"; then
-    skipped=$((skipped+1)); continue
-  fi
-  # VeriMon must accept it too (it is the oracle); skip otherwise
+  # VeriMon must accept the formula (it is the oracle); skip otherwise.
   if ! $MP -verified -sig "$WORK/s.sig" -formula "$WORK/f.mfotl" -check \
         2>&1 | grep -q "is monitorable"; then
     skipped=$((skipped+1)); continue
   fi
 
-  hash=$(shasum "$WORK/formula_in.h" "$WORK/formula_csts.h" | shasum | cut -c1-16)
-  binpath=/tmp/mon_$hash
-  if [ -f "$CACHE/$hash" ]; then
-    cache_hits=$((cache_hits+1))
-    docker cp "$CACHE/$hash" "$CTR:$binpath" >/dev/null
-  else
-    docker cp "$WORK/formula_in.h" "$CTR:$INDIR/formula_in.h" >/dev/null
-    docker cp "$WORK/formula_csts.h" "$CTR:$INDIR/formula_csts.h" >/dev/null
-    # docker cp preserves the host mtime; Docker Desktop's VM clock can be
-    # ahead of the macOS host, so the injected header looks OLDER than the .o
-    # and ninja skips the rebuild (stale binary). touch inside the container
-    # to force a rebuild.
-    if ! docker exec "$CTR" bash -c \
-          "touch $INDIR/formula_in.h $INDIR/formula_csts.h && ninja -C builddir" \
-          >"$WORK/ninja.log" 2>&1; then
-      echo "COMPILE FAILED: $formula"; skipped=$((skipped+1)); continue
-    fi
-    docker cp "$CTR:/opt/staticmon/builddir/bin/staticmon" "$CACHE/$hash" >/dev/null
-    docker cp "$CACHE/$hash" "$CTR:$binpath" >/dev/null
-    compiled=$((compiled+1))
+  # staticmon-build gates staticmon's monitorability/typing and compiles the
+  # monitor with binary caching (keyed by formula hash). exit 1 = staticmon
+  # rejects; exit 2 = build error.
+  if ! "$BUILD" -sig "$WORK/s.sig" -formula "$WORK/f.mfotl" \
+        --container "$CTR" --staticmon-compile "$SC" --cache-dir "$CACHE" \
+        -o "$WORK/mon" >"$WORK/build.log" 2>&1; then
+    skipped=$((skipped+1)); continue
   fi
+  if grep -q "cache hit" "$WORK/build.log"; then
+    cache_hits=$((cache_hits+1)); else compiled=$((compiled+1)); fi
+  binpath=/tmp/mon
+  docker cp "$WORK/mon" "$CTR:$binpath" >/dev/null
 
   formula_bad=0
   for ((t=0; t<TRACES; t++)); do

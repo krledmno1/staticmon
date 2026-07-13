@@ -1,0 +1,105 @@
+#!/usr/bin/env bash
+# staticmon-build: compile a per-formula StaticMon monitor, with binary caching.
+#
+# Generates the formula headers with staticmon_compile, then compiles the
+# template monitor (ninja) -- but only if a monitor for this exact formula is
+# not already cached. Compiled monitor binaries are cached by a hash of the
+# generated headers, so recompiling the same (signature, formula) is instant.
+#
+# Usage:
+#   staticmon-build -sig S.sig -formula F.mfotl [options]
+#
+# Options:
+#   -o FILE               copy the compiled monitor to FILE (default: print its path)
+#   --cache-dir DIR       binary cache directory (default: $HOME/.cache/staticmon)
+#   --builddir DIR        configured cmake/ninja build tree (default: builddir)
+#   --input-prefix DIR    where formula headers go
+#                         (default: src/staticmon/input_formula)
+#   --staticmon-compile P staticmon_compile binary
+#                         (default: <builddir>/bin/staticmon_compile)
+#   --container NAME      build inside a running docker container (see
+#                         docker/behavioral.Dockerfile) instead of locally;
+#                         headers are injected with docker cp and the binary is
+#                         extracted with docker cp. In this mode -o is required
+#                         to obtain the binary on the host.
+#   --no-cache            always recompile (still stores to the cache)
+#   -q                    quiet (suppress the [cache hit]/[compiled] line)
+#
+# Exit status: 0 on success (cache hit or compiled), 1 if the formula is not
+# monitorable / ill-typed (staticmon_compile rejects it), 2 on a build error.
+set -euo pipefail
+
+sig="" formula="" out="" no_cache=0 quiet=0 container=""
+cache_dir="${STATICMON_CACHE:-$HOME/.cache/staticmon}"
+builddir="builddir"
+input_prefix=""
+sc=""
+
+while [ $# -gt 0 ]; do
+  case "$1" in
+    -sig) sig=$2; shift 2;;
+    -formula) formula=$2; shift 2;;
+    -o) out=$2; shift 2;;
+    --cache-dir) cache_dir=$2; shift 2;;
+    --builddir) builddir=$2; shift 2;;
+    --input-prefix) input_prefix=$2; shift 2;;
+    --staticmon-compile) sc=$2; shift 2;;
+    --container) container=$2; shift 2;;
+    --no-cache) no_cache=1; shift;;
+    -q) quiet=1; shift;;
+    *) echo "unknown option: $1" >&2; exit 2;;
+  esac
+done
+[ -n "$sig" ] && [ -n "$formula" ] || { echo "usage: staticmon-build -sig S -formula F [options]" >&2; exit 2; }
+[ -n "$sc" ] || sc="$builddir/bin/staticmon_compile"
+[ -n "$input_prefix" ] || input_prefix="src/staticmon/input_formula"
+[ -n "$container" ] && [ -z "$out" ] && { echo "--container requires -o" >&2; exit 2; }
+
+mkdir -p "$cache_dir"
+tmp=$(mktemp -d); trap 'rm -rf "$tmp"' EXIT
+
+log() { [ "$quiet" -eq 1 ] || echo "$@" >&2; }
+
+# 1. Front-end: headers (also gates monitorability + typing).
+if ! "$sc" -sig "$sig" -formula "$formula" -prefix "$tmp" 2>"$tmp/err"; then
+  cat "$tmp/err" >&2
+  exit 1
+fi
+
+# 2. Cache key = hash of the generated headers.
+hash=$(cat "$tmp/formula_in.h" "$tmp/formula_csts.h" | shasum -a 256 | cut -c1-32)
+cached="$cache_dir/$hash"
+
+deliver() {  # copy the cached binary to -o if requested, else print its path
+  if [ -n "$out" ]; then cp "$1" "$out"; else echo "$1"; fi
+}
+
+if [ "$no_cache" -eq 0 ] && [ -f "$cached" ]; then
+  log "[cache hit] $hash"
+  deliver "$cached"
+  exit 0
+fi
+
+# 3. Compile the monitor (locally or in a container), then cache the binary.
+if [ -n "$container" ]; then
+  ip="/opt/staticmon/$input_prefix"
+  docker cp "$tmp/formula_in.h" "$container:$ip/formula_in.h" >/dev/null
+  docker cp "$tmp/formula_csts.h" "$container:$ip/formula_csts.h" >/dev/null
+  # docker cp preserves host mtime; touch inside so ninja sees the change.
+  if ! docker exec "$container" bash -c \
+        "touch $ip/formula_in.h $ip/formula_csts.h && ninja -C /opt/staticmon/builddir" \
+        >"$tmp/build.log" 2>&1; then
+    cat "$tmp/build.log" >&2; exit 2
+  fi
+  docker cp "$container:/opt/staticmon/builddir/bin/staticmon" "$cached" >/dev/null
+else
+  cp "$tmp/formula_in.h" "$input_prefix/formula_in.h"
+  cp "$tmp/formula_csts.h" "$input_prefix/formula_csts.h"
+  if ! ninja -C "$builddir" >"$tmp/build.log" 2>&1; then
+    cat "$tmp/build.log" >&2; exit 2
+  fi
+  cp "$builddir/bin/staticmon" "$cached"
+fi
+
+log "[compiled] $hash"
+deliver "$cached"

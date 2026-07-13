@@ -76,6 +76,29 @@ The log is in MonPoly format, one timepoint per line, each terminated by `;`:
 @2 p(3);
 ```
 
+## Building a monitor, with caching
+
+`scripts/staticmon-build` is the one-shot "compile a monitor for this formula"
+interface. It generates the headers (`staticmon_compile`), then compiles the
+per-formula monitor — **but only if a monitor for that exact formula is not
+already cached**. Compiled binaries are cached by a hash of the generated
+headers, so recompiling the same `(signature, formula)` is instant:
+
+```
+scripts/staticmon-build -sig bla.sig -formula bla.mfotl -o bla_monitor
+# [compiled] 2eed8a2b...        (first time; runs ninja)
+scripts/staticmon-build -sig bla.sig -formula bla.mfotl -o bla_monitor
+# [cache hit] 2eed8a2b...       (instant; no compilation)
+```
+
+Options: `--cache-dir DIR` (default `$HOME/.cache/staticmon`, or `$STATICMON_CACHE`),
+`--builddir DIR` (a configured cmake/ninja tree, default `builddir`),
+`--no-cache` to force a recompile, and `--container NAME` to compile inside a
+running Docker container built from `docker/behavioral.Dockerfile` (used when a
+native build tree is unavailable). It exits non-zero and prints the reason if
+the formula is not monitorable or ill-typed. The behavioral test harness
+(`test/behavioral/`) uses this same script for its cached, per-formula builds.
+
 ## Docker
 
 `docker/behavioral.Dockerfile` builds a warm, native-architecture build tree
