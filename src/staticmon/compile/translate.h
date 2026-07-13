@@ -556,6 +556,13 @@ private:
     if (past)
       bind_pred();
     exformula_ptr f1 = translate(*l.bound);
+    // PredL must match f1's actual output layout. Some operators (notably
+    // aggregation) reassign a parameter's id during translation, so read the
+    // ids back from the environment after f1 rather than trusting the shadow
+    // ids assigned above.
+    std::vector<var_id> pred_layout;
+    for (const auto &p : params)
+      pred_layout.push_back(lookup_var(p));
     if (!past)
       bind_pred();
     for (auto &[name, old] : saved_vars) {
@@ -576,7 +583,7 @@ private:
       schema_.erase(l.head.name);
 
     return mk_exformula(
-      exformula{ex_let{past, lid, std::move(param_ids), f1, f2}});
+      exformula{ex_let{past, lid, std::move(pred_layout), f1, f2}});
   }
 
   schema_map schema_;
