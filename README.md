@@ -1,12 +1,61 @@
 # staticmon
 
-Similar to [Cppmon](https://github.com/matthieugras/cppmon), but compiles an optimized monitor for each formula.
-Formula files have to be preprocessed with a [modified Monpoly version](https://github.com/matthieugras/monpoly), producing two header files. The generated header files contain information about the formula and are used to produce an optimized monitor using C++ template metaprogramming.
+Similar to [Cppmon](https://github.com/matthieugras/cppmon), but compiles an
+optimized monitor for each formula. A formula + signature is preprocessed into
+two header files (`formula_in.h`, `formula_csts.h`) that describe the formula;
+these instantiate the C++ template monitor in `src/staticmon/`, producing an
+optimized monitor via template metaprogramming.
+
+## Generating the formula headers
+
+There are two ways to produce `src/staticmon/input_formula/{formula_in,formula_csts}.h`:
+
+### Native (recommended): `staticmon_compile`
+
+staticmon now ships its **own** MFOTL front-end in `src/staticmon/{parser,compile}/`,
+so the header-generation step no longer depends on the OCaml
+[modified MonPoly fork](https://github.com/matthieugras/monpoly). The
+`staticmon_compile` tool parses the signature and formula, infers and checks
+types, checks monitorability, and emits the two headers:
+
+```
+staticmon_compile -sig bla.sig -formula bla.mfotl -prefix ./src/staticmon/input_formula
+```
+
+It is functionally equivalent to the newest MonPoly's parser/typing/
+monitorability plus the fork's `-explicitmon` codegen. Additional modes,
+useful for scripting and for checking against MonPoly:
+
+```
+staticmon_compile -sig bla.sig -formula bla.mfotl -check    # print monitorability verdict
+staticmon_compile -sig bla.sig -formula bla.mfotl -sigout   # print free-variable types
+```
+
+Ill-typed, non-monitorable, malformed-interval and unbounded-future formulas
+are rejected with a MonPoly-compatible message. The MFOTL/signature grammar and
+the full pipeline are documented in [`docs/monpoly-grammar.md`](docs/monpoly-grammar.md)
+and [`docs/explicitmon-pipeline.md`](docs/explicitmon-pipeline.md).
+
+`staticmon_compile` is built as part of the normal build (see below) and is
+also available standalone (header-only, no external dependencies):
+
+```
+clang++ -std=c++20 -I src -o staticmon_compile src/tools/staticmon_compile.cpp
+```
+
+### Legacy: MonPoly `-explicitmon`
+
+The original path still works if you have the modified MonPoly fork
+(vendored in `monpoly-exp/`):
+
+```
+monpoly -sig bla.sig -formula bla.mfotl -explicitmon -explicitmon_prefix=./src/staticmon/input_formula
+```
 
 ## Requirements
   - Static version of libstdc++
   - GCC >= 11 or Clang >= 13
-  - Conan package manager
+  - Conan package manager (v1)
   - CMake >= 3.22
   - Ninja build tool
 
@@ -14,15 +63,43 @@ Formula files have to be preprocessed with a [modified Monpoly version](https://
 1. Move to root of repository
 2. `./setup.sh` and select compiler and build mode
 3. `./configure.sh`
-5. `monpoly -sig bla.sig -formula bla.mfotl -explicitmon -explicitmon_prefix=./src/staticmon/input_formula`
-6. `ninja -C builddir`
-7. Resulting in binary `./builddir/bin/staticmon`
-8. To run the monitor: `./builddir/bin/staticmon --log bla.log`
+4. Generate the formula headers (see above), e.g.
+   `staticmon_compile -sig bla.sig -formula bla.mfotl -prefix ./src/staticmon/input_formula`
+5. `ninja -C builddir`
+6. Resulting in binary `./builddir/bin/staticmon`
+7. To run the monitor: `./builddir/bin/staticmon --log bla.log`
+
+The log is in MonPoly format, one timepoint per line, each terminated by `;`:
+
+```
+@0 p(1) q(1,"a");
+@2 p(3);
+```
+
+## Docker
+
+`docker/behavioral.Dockerfile` builds a warm, native-architecture build tree
+that recompiles a single translation unit per formula; it is used by the
+behavioral test harness (`test/behavioral/`). The standalone `Dockerfile`
+bundles the vendored MonPoly fork and the monitor toolchain.
+
+## Testing
+
+The front-end is differentially tested against the newest MonPoly:
+
+  - `test/parser_diff/`     — C++ parser vs the MonPoly parser (canonical ASTs)
+  - `test/pipeline_diff/`   — `staticmon_compile` headers vs `monpoly-exp -explicitmon`;
+                              typing/monitorability vs `monpoly -sigout`/`-check`
+  - `test/behavioral/`      — compiled monitor verdicts vs VeriMon (`monpoly -verified`)
 
 ## Notes
-- Has some easy to fix performance regressions
-- Debug builds can be several orders of magnitude slower than release builds
-- GCC seems to generate better code
-- The compilation step with Ninja can produce very long compiler warnings
-- Did not test the monitor with string event values; may be super slow if forgot to move strings in some places
-- `LetPast` not supported in the master branch of the modified monpoly code (still need to handle cases like `LETPAST P(x) = PREV P(x) IN P(x)`; where `x` is polymorphic)
+- Has some easy to fix performance regressions.
+- Debug builds can be several orders of magnitude slower to run than release builds.
+- GCC seems to generate better code.
+- The compilation step with Ninja can produce very long compiler warnings.
+- `LetPast`, regex operators (`MATCHF`/`MATCHP`), and `FRZ` are not yet
+  supported by the native front-end (they are out of the `-explicitmon`
+  fragment).
+- The native monitorability check does not yet apply MonPoly's full rewriting
+  (`rr`) pass, so it can be slightly more conservative than `monpoly -check`
+  (sound, never unsound).
