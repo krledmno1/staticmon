@@ -14,7 +14,9 @@
 #include <sstream>
 #include <staticmon/compile/desugar.h>
 #include <staticmon/compile/emit_headers.h>
+#include <staticmon/compile/monitorable.h>
 #include <staticmon/compile/translate.h>
+#include <staticmon/compile/typing.h>
 #include <staticmon/parser/formula_parser.h>
 #include <staticmon/parser/sig_parser.h>
 #include <string>
@@ -39,8 +41,29 @@ static compile::val_type conv_type(parser::sig_type t) {
   throw std::runtime_error("bad sig type");
 }
 
+static compile::tcst conv_tcst(parser::sig_type t) {
+  switch (t) {
+    case parser::sig_type::t_int: return compile::tcst::t_int;
+    case parser::sig_type::t_str: return compile::tcst::t_str;
+    case parser::sig_type::t_float: return compile::tcst::t_float;
+    case parser::sig_type::t_regexp: return compile::tcst::t_regexp;
+  }
+  return compile::tcst::t_int;
+}
+
+static const char *tcst_name(compile::tcst t) {
+  switch (t) {
+    case compile::tcst::t_int: return "int";
+    case compile::tcst::t_str: return "string";
+    case compile::tcst::t_float: return "float";
+    case compile::tcst::t_regexp: return "regexp";
+  }
+  return "?";
+}
+
 int main(int argc, char **argv) {
   std::string sig_path, formula_path, prefix;
+  bool mode_check = false, mode_sigout = false;
   for (int i = 1; i < argc; ++i) {
     std::string a = argv[i];
     auto next = [&]() { return (i + 1 < argc) ? argv[++i] : ""; };
@@ -50,11 +73,16 @@ int main(int argc, char **argv) {
       formula_path = next();
     else if (a == "-prefix" || a == "-explicitmon_prefix")
       prefix = next();
+    else if (a == "-check")
+      mode_check = true;
+    else if (a == "-sigout")
+      mode_sigout = true;
     else if (a == "-explicitmon")
       continue;
   }
   if (sig_path.empty() || formula_path.empty()) {
-    std::cerr << "usage: staticmon_compile -sig S -formula F [-prefix DIR]\n";
+    std::cerr << "usage: staticmon_compile -sig S -formula F "
+                 "[-prefix DIR | -check | -sigout]\n";
     return 2;
   }
 
@@ -63,35 +91,86 @@ int main(int argc, char **argv) {
     std::cerr << "signature error: " << err->message << "\n";
     return 1;
   }
+  const auto &sig = std::get<parser::signature>(sig_res);
+
+  // schema_map (codegen: concrete val_type per slot) + typing signature.
   compile::schema_map schema;
-  try {
-    for (const auto &p : std::get<parser::signature>(sig_res)) {
-      std::vector<compile::val_type> tys;
-      for (const auto &a : p.attrs)
+  std::vector<std::pair<compile::type_checker::pred_key, std::vector<compile::tcst>>>
+    type_sig;
+  for (const auto &p : sig) {
+    std::vector<compile::val_type> tys;
+    std::vector<compile::tcst> ttys;
+    bool has_regexp = false;
+    for (const auto &a : p.attrs) {
+      ttys.push_back(conv_tcst(a.type));
+      if (a.type == parser::sig_type::t_regexp)
+        has_regexp = true;
+      else
         tys.push_back(conv_type(a.type));
-      schema[p.name] = std::move(tys);
     }
-  } catch (const std::exception &e) {
-    std::cerr << "signature error: " << e.what() << "\n";
-    return 1;
+    if (!has_regexp)
+      schema[p.name] = std::move(tys);
+    type_sig.push_back({{p.name, p.attrs.size()}, std::move(ttys)});
   }
 
   auto f_res = parser::formula_parser::parse(read_file(formula_path));
   if (auto *err = std::get_if<parser::parse_error>(&f_res)) {
-    std::cerr << "formula parse error: " << err->message << " at "
-              << err->pos << "\n";
+    std::cerr << "formula parse error: " << err->message << " at " << err->pos
+              << "\n";
     return 1;
   }
   const auto &formula = std::get<parser::formula>(f_res);
+  auto orig_free = compile::free_vars(formula);
 
+  // Order matches monpoly's check_formula: check_wff, then type inference.
+  // Well-formedness (intervals / bounded future) on the original formula.
+  if (auto err = compile::check_wff(formula)) {
+    std::cerr << "Fatal error: exception Failure(\"" << *err << "\")\n";
+    return 1;
+  }
+
+  // Stage 2: type inference (rejects ill-typed like monpoly).
+  std::vector<std::pair<std::string, compile::tcst>> var_types;
   try {
-    auto orig_free = compile::free_vars(formula);
-    auto desugared = compile::desugar(formula);
+    compile::type_checker tc(type_sig);
+    var_types = tc.check(formula, orig_free);
+  } catch (const compile::type_error &e) {
+    std::cerr << "Fatal error: exception Failure(\"" << e.message << "\")\n";
+    return 1;
+  }
+
+  if (mode_sigout) {
+    for (std::size_t i = 0; i < var_types.size(); ++i)
+      std::cout << (i ? ", " : "") << var_types[i].first << ":"
+                << tcst_name(var_types[i].second);
+    std::cout << "\n";
+    return 0;
+  }
+
+  // Stage 3: desugar, then monitorability.
+  auto desugared = compile::desugar(formula);
+  auto mon = compile::is_monitorable(desugared);
+
+  if (mode_check) {
+    if (mon.ok)
+      std::cout << "The analyzed formula is monitorable.\n";
+    else
+      std::cout << "The analyzed formula is NOT monitorable, because of a "
+                   "subformula.\n"
+                << mon.reason << "\n";
+    return 0;
+  }
+  if (!mon.ok) {
+    std::cerr << "The formula is NOT monitorable: " << mon.reason << "\n";
+    return 1;
+  }
+
+  // Stages 4-5: translate + codegen.
+  try {
     compile::translator tr(std::move(schema));
     auto translated = tr.run(desugared, orig_free);
     compile::header_emitter emitter;
     auto headers = emitter.emit(translated);
-
     if (!prefix.empty()) {
       std::ofstream(prefix + "/formula_in.h") << headers.formula_in;
       std::ofstream(prefix + "/formula_csts.h") << headers.formula_csts;
