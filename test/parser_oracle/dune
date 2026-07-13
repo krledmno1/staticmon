@@ -1,0 +1,3 @@
+(executable
+  (name oracle)
+  (libraries libmonpoly unix))
