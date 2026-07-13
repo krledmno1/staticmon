@@ -39,15 +39,16 @@ CURATED = [
     # desugared
     "p(x) IMPLIES q(x)", "ALWAYS[0,3] p(x)", "PAST_ALWAYS[0,3] p(x)",
     "EVENTUALLY[0,2] (p(x) OR q(x))",
-    # NOTE: aggregations (CNT/SUM/MIN/MAX/AVG/MED) are NOT behaviorally
-    # tested: staticmon's MONITOR mishandles an empty relation at a timepoint
-    # (aggregations.h:380 dereferences a nullopt -> asserts in Debug, wrong
-    # results under NDEBUG). This is a pre-existing monitor bug independent of
-    # the pipeline; the aggregation CODEGEN is validated structurally via the
-    # header-diff harness. See STATUS.md.
-    # string variables (no string CONSTANTS: staticmon's monitor mishandles
-    # string constant literals - another pre-existing monitor bug; codegen for
-    # them is validated structurally instead)
+    # aggregations, with and without a group-by variable (empty-relation
+    # handling fixed in aggregations.h). MED is excluded: the monitor has no
+    # med_agg_op. AVG produces a float output (compared numerically).
+    "c <- CNT x; y r(x,y)", "c <- CNT y; x r(x,y)", "c <- CNT x r(y,x)",
+    "m <- SUM x; y r(y,x)", "m <- MIN x; y r(y,x)", "m <- MAX x; y r(y,x)",
+    "m <- MIN x r(y,x)", "m <- MAX x r(y,x)", "s <- SUM x r(y,x)",
+    "avg <- AVG x; y r(y,x)",
+    "c <- CNT x; y (r(x,y) AND p(x))",
+    # strings, incl. constants (mterm.h tcst + formula.h sv-literal fixed)
+    'a(u) AND u = "aa"', 'b(x,u) AND u = "bb"',
     "EXISTS u. b(x,u)", "b(x,u) AND p(x)",
     # --- deviation D1: div / mod / conversions inside constraints ---
     "r(x,y) AND z = x + y", "r(x,y) AND z = x - y",

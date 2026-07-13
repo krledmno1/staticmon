@@ -51,7 +51,9 @@ RUN mkdir -p src/staticmon/input_formula && \
       '#include <staticmon/common/mp_helpers.h>' \
       '#include <staticmon/operators/operators.h>' \
       '#include <staticmon/common/table.h>' \
+      '#include <string_view>' \
       'using namespace boost::mp11;' \
+      'using namespace std::literals;' \
       '#include <staticmon/input_formula/formula_csts.h>' \
       '#include <staticmon/input_formula/formula_in.h>' \
       > src/staticmon/input_formula/formula.h && \

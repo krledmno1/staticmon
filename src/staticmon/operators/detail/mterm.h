@@ -36,7 +36,11 @@ struct tcst {
 
   template<typename L, typename T>
   static ResT<L, T> eval(const T &) {
-    if constexpr (std::is_same_v<ResT<L, T>, std::string_view>)
+    // A string constant has value_type std::string_view but ResT
+    // std::string (via clean_monitor_cst_ty); construct the string
+    // explicitly since string_view -> string is not implicit. Test
+    // value_type, not ResT (which is never string_view).
+    if constexpr (std::is_same_v<value_type, std::string_view>)
       return std::string(Cst::value);
     else {
       return Cst::value;

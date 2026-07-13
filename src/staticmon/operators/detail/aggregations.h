@@ -376,9 +376,11 @@ struct maggregation
           auto node = tab->extract(it++);
           this->add_row(node.value());
         }
-      } else {
-        assert(!tab->empty());
       }
+      // An empty relation (tab == nullopt) contributes no rows; finalize_table
+      // then yields the empty-group-by default (0) or, with a group-by, no
+      // rows -- matching MonPoly. (The previous `assert(!tab->empty())` here
+      // dereferenced the empty optional.)
       auto res_tab = this->template finalize_table<true>();
       if (res_tab.empty())
         res.emplace_back();
