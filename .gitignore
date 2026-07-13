@@ -38,3 +38,12 @@ experiments/runner/eventually_data.csv
 experiments/runner/and_cartesian_data.csv
 experiments/runner/previous_data.csv
 experiments/runner/since_random_data.csv
+
+AGENT.md
+STATUS.md
+SKILLS-Cpp.md
+SKILLS-OCaml.md
+SKILLS-Isabelle.md
+monpoly-exp
+monpoly
+.DS_Store

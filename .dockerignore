@@ -1,0 +1,16 @@
+# Keep the docker build context small and free of host build artifacts.
+.git
+.DS_Store
+**/.DS_Store
+builddir
+builddir_debug
+profile
+# vendored monpoly fork: sources only
+monpoly-exp/_build
+monpoly-exp/.git
+monpoly-exp/evaluation
+# host-side experiment outputs
+experiments/runner/dist-newstyle
+# per-formula generated headers (the image generates its own)
+src/staticmon/input_formula/formula_in.h
+src/staticmon/input_formula/formula_csts.h
