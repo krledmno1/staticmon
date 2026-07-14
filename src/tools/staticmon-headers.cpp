@@ -5,7 +5,7 @@
 // monitorable, well-typed formulas for now.
 //
 // Usage:
-//   staticmon_compile -sig S.sig -formula F.mfotl [-prefix DIR]
+//   staticmon-headers -sig S.sig -formula F.mfotl [-prefix DIR]
 // With -prefix, writes DIR/formula_in.h and DIR/formula_csts.h; otherwise
 // prints formula_in.h, a line "//---CSTS---", then formula_csts.h to stdout.
 
@@ -81,7 +81,7 @@ int main(int argc, char **argv) {
       continue;
   }
   if (sig_path.empty() || formula_path.empty()) {
-    std::cerr << "usage: staticmon_compile -sig S -formula F "
+    std::cerr << "usage: staticmon-headers -sig S -formula F "
                  "[-prefix DIR | -check | -sigout]\n";
     return 2;
   }

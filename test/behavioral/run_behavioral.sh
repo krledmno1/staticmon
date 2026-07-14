@@ -2,7 +2,7 @@
 # Behavioral end-to-end oracle: staticmon (compiled per formula) vs VeriMon
 # (monpoly -verified) on small random traces.
 #
-# Pipeline per formula: staticmon_compile generates headers -> a per-formula
+# Pipeline per formula: staticmon-headers generates headers -> a per-formula
 # monitor is compiled inside a warm native container (staticmon-bench) -> run
 # on a trace; monpoly -verified runs the same formula+trace on the host; the
 # verdict streams are compared semantically.
@@ -12,12 +12,12 @@
 # conan deps + a warm build tree live in the prebuilt image; traces are capped
 # at <=100 timepoints (VeriMon is slow).
 #
-# Usage: run_behavioral.sh <staticmon_compile> [n_random] [seed] [traces_per_formula]
+# Usage: run_behavioral.sh <staticmon-headers> [n_random] [seed] [traces_per_formula]
 # Requires: docker image staticmon-bench + running container `smbench`; native
 # monpoly on PATH via $MONPOLY.
 set -uo pipefail
 cd "$(dirname "$0")"
-SC=${1:?path to staticmon_compile}
+SC=${1:?path to staticmon-headers}
 N=${2:-40}
 SEED=${3:-11}
 TRACES=${4:-3}

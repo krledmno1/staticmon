@@ -15,7 +15,7 @@
 #   - this repository, configured and compiled once (Clang 19 + ld.lld + Ninja;
 #     dependencies resolved by Conan 2 at build time), so that a per-formula
 #     rebuild recompiles a single translation unit and relinks;
-#   - the native front-end `staticmon_compile` (built from this repo) which
+#   - the native front-end `staticmon-headers` (built from this repo) which
 #     turns a monitorable formula + signature into the two C++ headers that
 #     instantiate StaticMon's templates -- no OCaml / MonPoly dependency;
 #   - the entrypoint script (docker/staticmon-entrypoint.sh) wiring them
@@ -84,10 +84,10 @@ RUN case "$(dpkg --print-architecture)" in \
 # include the formula headers), prime the template monitor with a trivial
 # formula (the repo ships only input_formula/formula.h, which #includes the two
 # generated headers), then a per-formula rebuild only recompiles staticmon.cpp.
-RUN ninja -C builddir bin/staticmon_compile && \
+RUN ninja -C builddir bin/staticmon-headers && \
     mkdir -p src/staticmon/input_formula && \
     echo 'p(int)' > /tmp/smoke.sig && echo 'ONCE[0,10] p(x)' > /tmp/smoke.mfotl && \
-    ./builddir/bin/staticmon_compile -sig /tmp/smoke.sig -formula /tmp/smoke.mfotl \
+    ./builddir/bin/staticmon-headers -sig /tmp/smoke.sig -formula /tmp/smoke.mfotl \
       -prefix "$PWD/src/staticmon/input_formula" && \
     ninja -C builddir && test -x builddir/bin/staticmon
 

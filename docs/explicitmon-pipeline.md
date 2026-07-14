@@ -7,7 +7,7 @@ MonPoly `-explicitmon` fork — with native C++ in staticmon. Oracle: the newest
 MonPoly (`monpoly-develop` @ `fe89b7da`, installed natively as `monpoly`).
 
 > **Status update.** The pipeline is implemented and shipped
-> (`src/staticmon/compile/`, `staticmon_compile`). The `-explicitmon` fork is
+> (`src/staticmon/compile/`, `staticmon-headers`). The `-explicitmon` fork is
 > no longer vendored in-repo (formerly `monpoly-exp/`); staticmon generates the
 > headers natively. The structural header-diff oracle (which used
 > `monpoly-exp -explicitmon`) has been retired in favour of behavioral
@@ -189,9 +189,9 @@ src/staticmon/compile/
   codegen/           emit_headers.h              exformula -> {formula_in,formula_csts}.h
   compile.h          driver stitching stages 1-5 -> Result<Headers, CompileError>
 tools/
-  staticmon_compile.cpp   CLI: -sig -formula -prefix (drop-in for -explicitmon)
+  staticmon-headers.cpp   CLI: -sig -formula -prefix (drop-in for -explicitmon)
 test/pipeline_diff/
-  header_diff: staticmon_compile vs monpoly-exp -explicitmon (stages 4-5)
+  header_diff: staticmon-headers vs monpoly-exp -explicitmon (stages 4-5)
   check_diff:  monitorability/types vs monpoly -check/-sigout (stages 2-3)
   behavior_diff: compiled staticmon verdicts vs monpoly -log (end-to-end)
 ```

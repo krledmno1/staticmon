@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # staticmon-build: compile a per-formula StaticMon monitor, with binary caching.
 #
-# Generates the formula headers with staticmon_compile, then compiles the
+# Generates the formula headers with staticmon-headers, then compiles the
 # template monitor (ninja) -- but only if a monitor for this exact formula is
 # not already cached. Compiled monitor binaries are cached by a hash of the
 # generated headers, so recompiling the same (signature, formula) is instant.
@@ -15,8 +15,8 @@
 #   --builddir DIR        configured cmake/ninja build tree (default: builddir)
 #   --input-prefix DIR    where formula headers go
 #                         (default: src/staticmon/input_formula)
-#   --staticmon-compile P staticmon_compile binary
-#                         (default: <builddir>/bin/staticmon_compile)
+#   --staticmon-compile P staticmon-headers binary
+#                         (default: <builddir>/bin/staticmon-headers)
 #   --container NAME      build inside a running docker container (see
 #                         docker/behavioral.Dockerfile) instead of locally;
 #                         headers are injected with docker cp and the binary is
@@ -26,7 +26,7 @@
 #   -q                    quiet (suppress the [cache hit]/[compiled] line)
 #
 # Exit status: 0 on success (cache hit or compiled), 1 if the formula is not
-# monitorable / ill-typed (staticmon_compile rejects it), 2 on a build error.
+# monitorable / ill-typed (staticmon-headers rejects it), 2 on a build error.
 set -euo pipefail
 
 sig="" formula="" out="" no_cache=0 quiet=0 container=""
@@ -51,7 +51,7 @@ while [ $# -gt 0 ]; do
   esac
 done
 [ -n "$sig" ] && [ -n "$formula" ] || { echo "usage: staticmon-build -sig S -formula F [options]" >&2; exit 2; }
-[ -n "$sc" ] || sc="$builddir/bin/staticmon_compile"
+[ -n "$sc" ] || sc="$builddir/bin/staticmon-headers"
 [ -n "$input_prefix" ] || input_prefix="src/staticmon/input_formula"
 [ -n "$container" ] && [ -z "$out" ] && { echo "--container requires -o" >&2; exit 2; }
 

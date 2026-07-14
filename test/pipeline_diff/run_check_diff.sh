@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Stage 2-3 differential test: staticmon_compile -sigout / -check vs the native
+# Stage 2-3 differential test: staticmon-headers -sigout / -check vs the native
 # monpoly (monpoly-develop) oracle, over the monitorable-leaning corpus (which
 # also contains non-monitorable and some ill-typed formulas).
 #
@@ -11,10 +11,10 @@
 # reports NOT monitorable (a documented completeness gap, never a soundness
 # violation). These are counted separately as `mon_rr_gap`.
 #
-# Usage: run_check_diff.sh <staticmon_compile> [n_random] [seed]
+# Usage: run_check_diff.sh <staticmon-headers> [n_random] [seed]
 set -uo pipefail
 cd "$(dirname "$0")"
-SC=${1:?path to staticmon_compile}
+SC=${1:?path to staticmon-headers}
 N=${2:-1000}
 SEED=${3:-7}
 MP=${MONPOLY:-/Users/krle/.opam/4.14.2/bin/monpoly}

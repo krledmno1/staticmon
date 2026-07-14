@@ -6,12 +6,12 @@
 # accept the formula, and the monitor compiles), and checks that staticmon's
 # verdicts match VeriMon (monpoly -verified) on the test's own trace.
 #
-# Usage: run_suite.sh <staticmon_compile> [monpoly_tests_dir]
+# Usage: run_suite.sh <staticmon-headers> [monpoly_tests_dir]
 # Requires the docker container `smbench` (docker/behavioral.Dockerfile) and
 # native monpoly ($MONPOLY).
 set -uo pipefail
 here="$(cd "$(dirname "$0")" && pwd)"
-SC=${1:?path to staticmon_compile}
+SC=${1:?path to staticmon-headers}
 TESTS=${2:-/Users/krle/Data/Projects/monpoly-develop/tests}
 MP=${MONPOLY:-/Users/krle/.opam/4.14.2/bin/monpoly}
 CTR=${CONTAINER:-smbench}

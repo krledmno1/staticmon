@@ -143,10 +143,10 @@ staticmon = Monitor {..}
       b <- RD.asks f_build_dir
       let header_dir = basedir </> "src" </> "staticmon" </> "input_formula"
           builddir = basedir </> T.unpack b
-          staticmonCompile = builddir </> "bin" </> "staticmon_compile"
+          staticmonCompile = builddir </> "bin" </> "staticmon-headers"
       -- native front-end: build it, generate the formula headers, then build
       -- the specialized monitor (no MonPoly dependency).
-      runKeep "ninja" ["-C", builddir, "bin/staticmon_compile"] >>= \case
+      runKeep "ninja" ["-C", builddir, "bin/staticmon-headers"] >>= \case
         Left err -> return $ Left err
         Right _ ->
           runDiscard staticmonCompile

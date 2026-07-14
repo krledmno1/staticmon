@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """Generate MFOTL formulas (+ a fixed signature) for differentially testing
-staticmon_compile's typing and monitorability against MonPoly.
+staticmon-headers's typing and monitorability against MonPoly.
 
 Emits, on stdout, the signature (first line, prefixed `SIG `) then one formula
 per line, built to be mostly monitorable by construction (the harness also
 feeds non-monitorable and some ill-typed ones). Used by
 test/pipeline_diff/run_check_diff.sh, which compares
-`staticmon_compile -sigout`/`-check` against `monpoly -sigout`/`-check`.
+`staticmon-headers -sigout`/`-check` against `monpoly -sigout`/`-check`.
 """
 
 import random

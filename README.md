@@ -7,7 +7,7 @@ describe the formula; these instantiate the C++ template monitor in
 `src/staticmon/`, producing a specialized monitor via template metaprogramming.
 
 The preprocessing (parse, type-check, monitorability check, codegen) is done by
-`staticmon_compile`, staticmon's own dependency-free MFOTL front-end — no OCaml
+`staticmon-headers`, staticmon's own dependency-free MFOTL front-end — no OCaml
 or MonPoly install is needed to build or run a monitor.
 
 There are two ways to work with staticmon: a **native** build tree, or a
@@ -45,17 +45,16 @@ image bundles the whole toolchain.
 ```
 ./setup.sh                              # pick compiler and build mode
 ./configure.sh                          # Conan installs deps, CMake configures builddir/
-ninja -C builddir bin/staticmon_compile # build the MFOTL front-end
+ninja -C builddir bin/staticmon-headers # build the front-end
 ```
 
-You now have `builddir/bin/staticmon_compile` and a configured build tree.
+You now have `builddir/bin/staticmon-headers` and a configured build tree.
 Per-formula monitors are built from here in [Use](#use).
 
-The front-end is dependency-free and can also be built on its own, without
+Note: The front-end is dependency-free and can also be built on its own, without
 Conan/CMake:
-
 ```
-clang++ -std=c++20 -I src -o staticmon_compile src/tools/staticmon_compile.cpp
+clang++ -std=c++20 -I src -o staticmon-headers src/tools/staticmon-headers.cpp
 ```
 
 ### Docker
@@ -81,14 +80,14 @@ A signature declares the predicates and their argument types, e.g.
 ### Compile the formula
 
 **Native.** `scripts/staticmon-build` is the one-shot interface: it generates
-the headers with `staticmon_compile`, compiles the per-formula monitor, and
+the headers with `staticmon-headers`, compiles the per-formula monitor, and
 caches the binary by a hash of the headers — so recompiling the same formula is
 instant.
 
 ```
-scripts/staticmon-build -sig bla.sig -formula bla.mfotl -o bla_monitor
+scripts/staticmon-build -sig foo.sig -formula foo.mfotl -o foo_monitor
 # [compiled] 2eed8a2b...     (first time; runs ninja)
-scripts/staticmon-build -sig bla.sig -formula bla.mfotl -o bla_monitor
+scripts/staticmon-build -sig foo.sig -formula foo.mfotl -o foo_monitor
 # [cache hit] 2eed8a2b...    (instant)
 ```
 
@@ -101,16 +100,16 @@ the formula is not monitorable or is ill-typed.
 mounted directory (also cached, by an md5 of the inputs):
 
 ```
-docker run --rm -v "$PWD":/work staticmon compile -sig bla.sig -formula bla.mfotl
-# -> ./bla_staticmon
+docker run --rm -v "$PWD":/work staticmon compile -sig foo.sig -formula foo.mfotl
+# -> ./foo_staticmon
 ```
 
-Two `staticmon_compile` modes are handy for scripting or checking against
+Two `staticmon-headers` modes are handy for scripting or checking against
 MonPoly:
 
 ```
-staticmon_compile -sig bla.sig -formula bla.mfotl -check    # monitorability verdict
-staticmon_compile -sig bla.sig -formula bla.mfotl -sigout   # free-variable types
+staticmon-headers -sig foo.sig -formula foo.mfotl -check    # monitorability verdict
+staticmon-headers -sig foo.sig -formula foo.mfotl -sigout   # free-variable types
 ```
 
 ### Monitor the log
@@ -126,14 +125,14 @@ with a `@<timestamp>` prefix.
 **Native:**
 
 ```
-./bla_monitor --log bla.log
+./foo_monitor --log foo.log
 ```
 
 **Docker** (pass a file, or stream on stdin):
 
 ```
-docker run --rm -v "$PWD":/work staticmon run -monitor bla_staticmon -log bla.log
-cat bla.log | docker run -i --rm -v "$PWD":/work staticmon run -monitor bla_staticmon
+docker run --rm -v "$PWD":/work staticmon run -monitor foo_staticmon -log foo.log
+cat foo.log | docker run -i --rm -v "$PWD":/work staticmon run -monitor foo_staticmon
 ```
 
 Verdicts print as `@<ts> (time point <tp>): (<tuple>) (<tuple>) ...`, one line
@@ -147,7 +146,7 @@ The front-end and the compiled monitors are differentially tested against the
 newest MonPoly / VeriMon (need a native `monpoly` and Python 3):
 
 - `test/parser_diff/`   — C++ parser vs the MonPoly parser (canonical ASTs).
-- `test/pipeline_diff/` — `staticmon_compile` typing/monitorability vs
+- `test/pipeline_diff/` — `staticmon-headers` typing/monitorability vs
                           `monpoly -sigout` / `monpoly -check`.
 - `test/behavioral/`    — compiled-monitor verdicts vs VeriMon (`monpoly -verified`)
                           on random formulas + traces.

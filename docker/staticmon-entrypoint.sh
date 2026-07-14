@@ -26,7 +26,7 @@
 set -euo pipefail
 
 STATICMON_DIR=/opt/staticmon
-STATICMON_COMPILE="$STATICMON_DIR/builddir/bin/staticmon_compile"
+STATICMON_COMPILE="$STATICMON_DIR/builddir/bin/staticmon-headers"
 HDRDIR="$STATICMON_DIR/src/staticmon/input_formula"
 
 usage() { sed -n '2,25p' "$0" | sed 's/^# \{0,1\}//' >&2; exit 2; }
