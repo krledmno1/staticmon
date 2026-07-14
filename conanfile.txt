@@ -1,6 +1,6 @@
 [requires]
 boost/1.78.0
-abseil/20211102.0
+abseil/20240116.2
 fmt/9.0.0
 jemalloc/5.3.0
 
