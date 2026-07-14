@@ -24,8 +24,8 @@ set(CMAKE_CXX_VISIBILITY_PRESET hidden)
 set(CMAKE_VISIBILITY_INLINES_HIDDEN ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 # Conan v1's conan_basic_setup() used to place binaries in <build>/bin; keep
-# that convention (the entrypoint, scripts/staticmon-build and tests rely on it)
-# now that dependencies come from Conan 2 instead.
+# that convention (scripts/staticmon-impl and the tests rely on it) now that
+# dependencies come from Conan 2 instead.
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
 # Dependencies come from Conan 2 (CMakeDeps generators); the CMakeToolchain

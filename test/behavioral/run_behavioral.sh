@@ -26,7 +26,7 @@ MP=${MONPOLY:-$(command -v monpoly 2>/dev/null || ls "$HOME"/.opam/*/bin/monpoly
 CTR=${CONTAINER:-smbench}
 CACHE=${CACHE:-$HOME/.cache/staticmon-bench-bin}
 # cwd is already this script's dir (test/behavioral) from the cd above.
-BUILD=${BUILD:-"$(cd ../../scripts && pwd)/staticmon-build"}
+IMPL=${IMPL:-"$(cd ../../scripts && pwd)/staticmon-impl"}
 mkdir -p "$CACHE"
 WORK=$(mktemp -d); trap 'rm -rf "$WORK"' EXIT
 
@@ -52,12 +52,12 @@ while IFS= read -r formula; do
     skipped=$((skipped+1)); continue
   fi
 
-  # staticmon-build gates staticmon's monitorability/typing and compiles the
-  # monitor with binary caching (keyed by formula hash). exit 1 = staticmon
-  # rejects; exit 2 = build error.
-  if ! "$BUILD" -sig "$WORK/s.sig" -formula "$WORK/f.mfotl" \
-        --container "$CTR" --staticmon-compile "$SC" --cache-dir "$CACHE" \
-        -o "$WORK/mon" >"$WORK/build.log" 2>&1; then
+  # staticmon-impl compile gates monitorability/typing and compiles the monitor
+  # with binary caching (namespaced by the container's build_id, keyed by header
+  # hash). exit 1 = rejected; exit 2 = build error.
+  if ! STATICMON_HEADERS="$SC" "$IMPL" compile -sig "$WORK/s.sig" -formula "$WORK/f.mfotl" \
+        -container "$CTR" -cache "$CACHE" -keep "$WORK/mon" \
+        >"$WORK/build.log" 2>&1; then
     skipped=$((skipped+1)); continue
   fi
   if grep -q "cache hit" "$WORK/build.log"; then

@@ -16,7 +16,7 @@ TESTS=${2:-/Users/krle/Data/Projects/monpoly-develop/tests}
 MP=${MONPOLY:-$(command -v monpoly 2>/dev/null || ls "$HOME"/.opam/*/bin/monpoly 2>/dev/null | head -1)}
 CTR=${CONTAINER:-smbench}
 CACHE=${CACHE:-$HOME/.cache/staticmon-suite}
-BUILD="$here/../../scripts/staticmon-build"
+IMPL="$here/../../scripts/staticmon-impl"
 CMP="$here/../behavioral/compare_verdicts.py"
 mkdir -p "$CACHE"
 WORK=$(mktemp -d); trap 'rm -rf "$WORK"' EXIT
@@ -40,11 +40,11 @@ while IFS=$'\t' read -r id sig log mfotl; do
   if ! $MP -verified -sig "$sig" -formula "$mfotl" -check 2>&1 | grep -q "is monitorable"; then
     mp_reject=$((mp_reject+1)); continue
   fi
-  # staticmon-build exit code: 1 = staticmon's front-end rejects the formula
-  # (not monitorable / ill-typed / unsupported construct -- out of fragment,
-  # same as MonPoly's -explicitmon); 2 = the monitor failed to compile.
-  "$BUILD" -sig "$sig" -formula "$mfotl" --container "$CTR" \
-        --staticmon-compile "$SC" --cache-dir "$CACHE" -o "$WORK/mon" \
+  # staticmon-impl compile exit code: 1 = the front-end rejects the formula
+  # (not monitorable / ill-typed / unsupported construct -- out of fragment);
+  # 2 = the monitor failed to compile.
+  STATICMON_HEADERS="$SC" "$IMPL" compile -sig "$sig" -formula "$mfotl" \
+        -container "$CTR" -cache "$CACHE" -keep "$WORK/mon" \
         >"$WORK/b.log" 2>&1; rc=$?
   if [ $rc -eq 1 ]; then
     out_of_frag=$((out_of_frag+1)); continue

@@ -79,16 +79,18 @@ release_lock() { rm -rf "$LOCK"; LOCK=""; }
 # ============================ subcommands ============================
 
 do_compile() {
-  local sig="" formula="" keep="" no_cache=0 quiet=0
+  local sig="" formula="" keep="" no_cache=0 quiet=0 container=""
   while [ $# -gt 0 ]; do case "$1" in
     -sig) sig=$2; shift 2;;
     -formula) formula=$2; shift 2;;
     -keep) keep=$2; shift 2;;
+    -container) container=$2; shift 2;;   # compile inside a running docker container
     -no-cache) no_cache=1; shift;;
     -cache) CACHE=$2; shift 2;;
     -quiet) quiet=1; shift;;
     *) die "compile: unknown option '$1'";;
   esac; done
+  local chome="${STATICMON_CONTAINER_HOME:-/opt/staticmon}"
   [ -n "$sig" ] && [ -n "$formula" ] || die "compile requires -sig SIG and -formula FORMULA"
   [ -f "$sig" ]     || die "signature not found: $sig"
   [ -f "$formula" ] || die "formula not found: $formula"
@@ -102,7 +104,14 @@ do_compile() {
   fi
   local hh bid dir bin
   hh=$(cat "$TMP/formula_in.h" "$TMP/formula_csts.h" | sha 32)
-  bid=$(build_id)
+  # build_id: for a container build it is the CONTAINER's fingerprint (so a
+  # rebuilt image invalidates the cache); otherwise the local build tree's.
+  if [ -n "$container" ]; then
+    bid=$(docker exec "$container" cat "$chome/builddir/BUILD_ID" 2>/dev/null || true)
+    [ -n "$bid" ] || die "container '$container' has no $chome/builddir/BUILD_ID (not a configured staticmon tree?)"
+  else
+    bid=$(build_id)
+  fi
   dir="$CACHE/$bid"; bin="$dir/bin/$hh"
   mkdir -p "$dir/bin"
 
@@ -116,11 +125,24 @@ do_compile() {
   # 3. Miss: serialize the shared-tree compile; re-check under the lock.
   acquire_lock "$dir/.lockdir"
   if [ "$no_cache" -eq 1 ] || [ ! -x "$bin" ]; then
-    cp "$TMP/formula_in.h" "$TMP/formula_csts.h" "$INPUT_PREFIX/"
-    if ! ninja -C "$BUILDDIR" bin/staticmon >"$TMP/build.log" 2>&1; then
-      cat "$TMP/build.log" >&2; release_lock; exit 2
+    if [ -n "$container" ]; then
+      local cip="$chome/src/staticmon/input_formula"
+      docker cp "$TMP/formula_in.h"   "$container:$cip/formula_in.h"   >/dev/null
+      docker cp "$TMP/formula_csts.h" "$container:$cip/formula_csts.h" >/dev/null
+      # docker cp resets mtime; touch inside so ninja rebuilds the one TU.
+      if ! docker exec "$container" bash -c \
+            "touch '$cip/formula_in.h' '$cip/formula_csts.h' && ninja -C '$chome/builddir' bin/staticmon" \
+            >"$TMP/build.log" 2>&1; then
+        cat "$TMP/build.log" >&2; release_lock; exit 2
+      fi
+      docker cp "$container:$chome/builddir/bin/staticmon" "$dir/bin/.$hh.$$" >/dev/null
+    else
+      cp "$TMP/formula_in.h" "$TMP/formula_csts.h" "$INPUT_PREFIX/"
+      if ! ninja -C "$BUILDDIR" bin/staticmon >"$TMP/build.log" 2>&1; then
+        cat "$TMP/build.log" >&2; release_lock; exit 2
+      fi
+      cp "$BUILDDIR/bin/staticmon" "$dir/bin/.$hh.$$"   # stage on the cache filesystem
     fi
-    cp "$BUILDDIR/bin/staticmon" "$dir/bin/.$hh.$$"   # stage on the cache filesystem
     mv -f "$dir/bin/.$hh.$$" "$bin"                    # atomic publish
     mkdir -p "$dir/headers/$hh"
     cp "$TMP/formula_in.h" "$TMP/formula_csts.h" "$dir/headers/$hh/"
