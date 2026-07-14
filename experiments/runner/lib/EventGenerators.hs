@@ -741,8 +741,9 @@ andNotBenchGen log_f sig_f fo_f nts ntp AntiJoinConfig {..} = do
   let numLeftMatching :: Int = round (aj_matchprobability * fromIntegral aj_lsize)
       (cidx1, cidx2) = commonVars vars1 vars2
   withPrintState log_f $ do
-    forM_ [0 .. nts] $ \_ ->
+    forM_ [0 .. nts] $ \i ->
       forM_ [0 .. (ntp - 1)] $ \_ -> do
+        newDb i -- start a new time-point (`@i`); was missing, so the log had no timestamps
         (lmatchevs, revs) <- genAndCommonTables numLeftMatching aj_rsize n1 n2 cidx1 cidx2
         V.forM_ lmatchevs (outputNewEvent "P")
         V.forM_ revs (outputNewEvent "Q")

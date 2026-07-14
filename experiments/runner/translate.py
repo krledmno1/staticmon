@@ -396,8 +396,16 @@ def main():
     a = ap.parse_args()
 
     if a.kind == "trace":
-        with open(a.infile) as fin, open(a.outfile, "w") as fout:
-            translate_trace(a.to, fin, fout)
+        with open(a.infile) as fin:
+            content = fin.read()
+        # guard against silently emitting an empty trace from a malformed log
+        if content.strip() and not any(
+                ln.lstrip().startswith("@") for ln in content.splitlines()):
+            sys.exit(f"translate.py: log {a.infile} has events but no "
+                     f"@-timestamped time-points")
+        import io
+        with open(a.outfile, "w") as fout:
+            translate_trace(a.to, io.StringIO(content), fout)
         return
     with open(a.infile) as fin:
         text = fin.read()
