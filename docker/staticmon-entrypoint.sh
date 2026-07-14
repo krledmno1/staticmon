@@ -12,8 +12,8 @@
 #
 #   run -monitor MONITOR [-log LOG]
 #       Run a previously compiled MONITOR binary on LOG, or on standard
-#       input when -log is omitted (use `docker run -i`). A ';'-terminated
-#       copy of the log (StaticMon's dialect) is derived automatically.
+#       input when -log is omitted (use `docker run -i`). The log must be in
+#       StaticMon's dialect: one timepoint per line, each terminated by ';'.
 #       Verdicts go to stdout as '@ts (time point tp): (tuples)'.
 #
 # Typical use:
@@ -82,15 +82,9 @@ cmd_run() {
 
   if [[ -n $log ]]; then
     [[ -f $log ]] || { echo "error: log '$log' not found in work directory" >&2; exit 2; }
-    local slog=$log
-    if grep -qv ';$' "$log"; then
-      slog=$(mktemp --suffix=.slog)
-      sed '/;$/!s/$/;/' "$log" > "$slog"
-    fi
-    exec "./$monitor" --log "$slog"
+    exec "./$monitor" --log "$log"
   else
-    # stream stdin through the dialect filter into the monitor
-    sed --unbuffered '/;$/!s/$/;/' | "./$monitor" --log /dev/stdin
+    exec "./$monitor" --log /dev/stdin
   fi
 }
 
