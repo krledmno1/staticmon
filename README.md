@@ -56,11 +56,14 @@ monpoly -sig bla.sig -formula bla.mfotl -explicitmon -explicitmon_prefix=./src/s
 ```
 
 ## Requirements
-  - Static version of libstdc++
-  - GCC >= 11 or Clang >= 13
-  - Conan package manager (v1)
+  - A C++ standard library: static libstdc++ on Linux, or libc++ on macOS
+  - GCC >= 11, Clang >= 13, or Apple clang
+  - Conan package manager (v2)
   - CMake >= 3.22
   - Ninja build tool
+
+Builds natively on both Linux (libstdc++) and macOS/Apple Silicon (Apple
+clang + libc++); `./setup.sh` detects the host toolchain.
 
 ## Compilation steps
 1. Move to root of repository
