@@ -1,0 +1,1 @@
+S(a,b,c) AND NOT (a = b + 2)

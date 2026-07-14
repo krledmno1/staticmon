@@ -1,74 +1,10 @@
 #!/usr/bin/env bash
-# Replay MonPoly's test suite against staticmon.
+# Replay the stored monpoly-develop cases against staticmon -- no monpoly and no
+# external corpus at runtime. The cases (test/monpoly_suite/cases) are extracted
+# from the monpoly-develop corpus with VeriMon's verdicts stored, by regen.sh
+# (an offline maintainer tool). This just replays them via ../replay_cases.sh.
 #
-# Extracts (signature, formula, trace) cases from monpoly-develop/tests, keeps
-# the ones inside staticmon's supported fragment (both staticmon and VeriMon
-# accept the formula, and the monitor compiles), and checks that staticmon's
-# verdicts match VeriMon (monpoly -verified) on the test's own trace.
-#
-# Usage: run_suite.sh <staticmon-headers> [monpoly_tests_dir]
-# Requires the docker container `smbench` (docker/behavioral.Dockerfile) and
-# native monpoly ($MONPOLY).
-set -uo pipefail
+# Usage: run_suite.sh <staticmon-headers>
 here="$(cd "$(dirname "$0")" && pwd)"
-SC=${1:?path to staticmon-headers}
-TESTS=${2:-/Users/krle/Data/Projects/monpoly-develop/tests}
-MP=${MONPOLY:-$(command -v monpoly 2>/dev/null || ls "$HOME"/.opam/*/bin/monpoly 2>/dev/null | head -1)}
-CTR=${CONTAINER:-smbench}
-CACHE=${CACHE:-$HOME/.cache/staticmon-suite}
-IMPL="$here/../../scripts/staticmon-impl"
-CMP="$here/../behavioral/compare_verdicts.py"
-mkdir -p "$CACHE"
-WORK=$(mktemp -d); trap 'rm -rf "$WORK"' EXIT
-
-command -v python3 >/dev/null 2>&1 || { echo "python3 not found; skipping" >&2; exit 77; }
-{ [ -n "$MP" ] && [ -x "$MP" ]; } || { echo "monpoly not found (set \$MONPOLY); skipping" >&2; exit 77; }
-[ -d "$TESTS" ] || { echo "monpoly-develop tests dir not found: $TESTS (arg 2 / \$TESTS); skipping" >&2; exit 77; }
-docker exec "$CTR" true 2>/dev/null || { echo "container $CTR not running; skipping" >&2; exit 77; }
-
-python3 "$here/extract_tests.py" "$TESTS" "$WORK/stage" > "$WORK/manifest_full.tsv" 2>"$WORK/ex.err"
-cat "$WORK/ex.err" >&2
-# Optional: LIMIT=N to sample the first N cases; FILTER=regex to select ids.
-if [ -n "${FILTER:-}" ]; then grep -E "^($FILTER)" "$WORK/manifest_full.tsv" > "$WORK/manifest.tsv"
-else cp "$WORK/manifest_full.tsv" "$WORK/manifest.tsv"; fi
-if [ -n "${LIMIT:-}" ]; then head -n "$LIMIT" "$WORK/manifest.tsv" > "$WORK/m2.tsv" && mv "$WORK/m2.tsv" "$WORK/manifest.tsv"; fi
-
-total=0 out_of_frag=0 mp_reject=0 build_err=0 match=0 mism=0
-while IFS=$'\t' read -r id sig log mfotl; do
-  total=$((total+1))
-  # VeriMon must accept (the oracle); otherwise the case is not comparable.
-  if ! $MP -verified -sig "$sig" -formula "$mfotl" -check 2>&1 | grep -q "is monitorable"; then
-    mp_reject=$((mp_reject+1)); continue
-  fi
-  # staticmon-impl compile exit code: 1 = the front-end rejects the formula
-  # (not monitorable / ill-typed / unsupported construct -- out of fragment);
-  # 2 = the monitor failed to compile.
-  STATICMON_HEADERS="$SC" "$IMPL" compile -sig "$sig" -formula "$mfotl" \
-        -container "$CTR" -cache "$CACHE" -keep "$WORK/mon" \
-        >"$WORK/b.log" 2>&1; rc=$?
-  if [ $rc -eq 1 ]; then
-    out_of_frag=$((out_of_frag+1)); continue
-  elif [ $rc -ne 0 ]; then
-    build_err=$((build_err+1))
-    [ $build_err -le 12 ] && { echo "BUILD ERR $id: $(head -1 "$mfotl")"; grep -m1 "error:" "$WORK/b.log" | head -1; }
-    continue
-  fi
-  docker cp "$WORK/mon" "$CTR:/tmp/mon" >/dev/null
-  docker cp "$log" "$CTR:/suite.log" >/dev/null
-  docker exec "$CTR" /tmp/mon --log /suite.log > "$WORK/sm.out" 2>/dev/null
-  $MP -verified -sig "$sig" -formula "$mfotl" -log "$log" > "$WORK/mp.out" 2>/dev/null
-  if python3 "$CMP" "$WORK/sm.out" "$WORK/mp.out" > "$WORK/d.txt" 2>&1; then
-    match=$((match+1))
-  else
-    mism=$((mism+1))
-    if [ $mism -le 20 ]; then
-      echo "=== MISMATCH $id: $(head -1 "$mfotl") ==="
-      head -6 "$WORK/d.txt"
-    fi
-  fi
-done < "$WORK/manifest.tsv"
-
-echo
-echo "total=$total  out_of_fragment=$out_of_frag  verimon_rejected=$mp_reject  build_error=$build_err"
-echo "compared: match=$match mismatch=$mism"
-[ "$mism" -eq 0 ] && [ "$build_err" -eq 0 ]
+exec bash "$here/../replay_cases.sh" "$here/cases" "${1:?path to staticmon-headers}" \
+  "${CACHE:-$HOME/.cache/staticmon-suite}"

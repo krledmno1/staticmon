@@ -1,0 +1,1 @@
+S(a,b,c) AND NOT b = 0 AND a / b - c = 8

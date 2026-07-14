@@ -1,0 +1,1 @@
+(EXISTS x. ((x=0) AND EXISTS x.P(x))) AND P(x)

@@ -1,0 +1,1 @@
+NOT ((NEXT[0,0] r()) OR NEXT[0,0] s()) UNTIL[0,0] r()

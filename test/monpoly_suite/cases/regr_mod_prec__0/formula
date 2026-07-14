@@ -1,0 +1,1 @@
+(p3(x,y,z) AND r = x MOD y + z)

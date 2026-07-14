@@ -1,0 +1,1 @@
+(NOT P(x)) UNTIL[0,9] R(x,y)
