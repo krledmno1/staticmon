@@ -100,3 +100,29 @@ elseif(IS_CLANG_LIKE)
 endif()
 
 add_subdirectory(src)
+
+# --- BUILD_ID: fingerprint for staticmon-impl's per-formula binary cache. -----
+# Namespacing the cache by this makes a compiler/dep/monitor-source change miss
+# the cache instead of serving a stale (or cross-target) binary. Written at
+# configure time; staticmon-impl reads builddir/BUILD_ID (fast path) and falls
+# back to recomputing it if a monitor header is newer than this file.
+set(_bid "${CMAKE_CXX_COMPILER_ID};${CMAKE_CXX_COMPILER_VERSION};${CMAKE_SYSTEM_NAME};${CMAKE_SYSTEM_PROCESSOR}")
+file(SHA256 "${CMAKE_SOURCE_DIR}/conanfile.txt" _cf)
+string(APPEND _bid ";${_cf}")
+file(GLOB_RECURSE _mon_hdrs "${CMAKE_SOURCE_DIR}/src/staticmon/*.h")
+list(SORT _mon_hdrs)
+foreach(_h IN LISTS _mon_hdrs)
+  if(NOT _h MATCHES "input_formula")
+    file(SHA256 "${_h}" _hh)
+    string(APPEND _bid ";${_hh}")
+  endif()
+endforeach()
+string(SHA256 _bidhash "${_bid}")
+string(SUBSTRING "${_bidhash}" 0 16 BUILD_ID)
+file(WRITE "${CMAKE_BINARY_DIR}/BUILD_ID" "${BUILD_ID}")
+
+# --- Tests (ctest). Differential/behavioral harnesses; see test/CMakeLists.txt.
+include(CTest)
+if(BUILD_TESTING AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/test/CMakeLists.txt")
+  add_subdirectory(test)
+endif()

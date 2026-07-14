@@ -17,7 +17,9 @@ cd "$(dirname "$0")"
 SC=${1:?path to staticmon-headers}
 N=${2:-1000}
 SEED=${3:-7}
-MP=${MONPOLY:-/Users/krle/.opam/4.14.2/bin/monpoly}
+MP=${MONPOLY:-$(command -v monpoly 2>/dev/null || ls "$HOME"/.opam/*/bin/monpoly 2>/dev/null | head -1)}
+command -v python3 >/dev/null 2>&1 || { echo "python3 not found; skipping" >&2; exit 77; }
+{ [ -n "$MP" ] && [ -x "$MP" ]; } || { echo "monpoly not found (set \$MONPOLY); skipping" >&2; exit 77; }
 WORK=$(mktemp -d); trap 'rm -rf "$WORK"' EXIT
 
 SIG=$(python3 gen_formulas.py "$N" "$SEED" 2>&1 >"$WORK/formulas.txt")

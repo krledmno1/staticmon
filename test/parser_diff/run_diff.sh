@@ -19,6 +19,11 @@ if [ -z "${ORACLE_CMD:-}" ]; then
     ORACLE_CMD="docker run --rm -i monpoly-oracle"
   fi
 fi
+command -v python3 >/dev/null 2>&1 || { echo "python3 not found; skipping" >&2; exit 77; }
+if [ "$ORACLE_CMD" = "docker run --rm -i monpoly-oracle" ]; then
+  { command -v docker >/dev/null 2>&1 && docker image inspect monpoly-oracle >/dev/null 2>&1; } \
+    || { echo "no parser oracle (build ../parser_oracle or the monpoly-oracle image); skipping" >&2; exit 77; }
+fi
 WORK=$(mktemp -d)
 trap 'rm -rf "$WORK"' EXIT
 

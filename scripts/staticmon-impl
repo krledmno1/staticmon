@@ -41,7 +41,14 @@ sha() { shasum -a 256 | cut -c1-"$1"; }   # $1 = truncation length
 # cache instead of serving a stale (or cross-target) binary. Slice 4 will bake
 # it at configure time into $STATICMON_HOME/BUILD_ID (read fast-path below).
 build_id() {
-  if [ -f "$STATICMON_HOME/BUILD_ID" ]; then cat "$STATICMON_HOME/BUILD_ID"; return; fi
+  local marker="$BUILDDIR/BUILD_ID" newer
+  # Fast path: the marker CMake wrote at configure time -- unless a monitor
+  # header is newer than it (edited since configure), in which case recompute.
+  if [ -f "$marker" ]; then
+    newer=$(find "$STATICMON_HOME/src/staticmon" -name '*.h' ! -path '*input_formula*' \
+            -newer "$marker" 2>/dev/null || true)
+    [ -z "$newer" ] && { cat "$marker"; return; }
+  fi
   local cxx ver triple
   cxx=$(sed -n 's/^CMAKE_CXX_COMPILER:[^=]*=//p' "$BUILDDIR/CMakeCache.txt" 2>/dev/null || true)
   [ -n "$cxx" ] || die "no configured build tree at $BUILDDIR (run ./configure.sh first)"

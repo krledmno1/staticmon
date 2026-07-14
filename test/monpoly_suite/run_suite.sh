@@ -13,7 +13,7 @@ set -uo pipefail
 here="$(cd "$(dirname "$0")" && pwd)"
 SC=${1:?path to staticmon-headers}
 TESTS=${2:-/Users/krle/Data/Projects/monpoly-develop/tests}
-MP=${MONPOLY:-/Users/krle/.opam/4.14.2/bin/monpoly}
+MP=${MONPOLY:-$(command -v monpoly 2>/dev/null || ls "$HOME"/.opam/*/bin/monpoly 2>/dev/null | head -1)}
 CTR=${CONTAINER:-smbench}
 CACHE=${CACHE:-$HOME/.cache/staticmon-suite}
 BUILD="$here/../../scripts/staticmon-build"
@@ -21,7 +21,10 @@ CMP="$here/../behavioral/compare_verdicts.py"
 mkdir -p "$CACHE"
 WORK=$(mktemp -d); trap 'rm -rf "$WORK"' EXIT
 
-docker exec "$CTR" true 2>/dev/null || { echo "container $CTR not running" >&2; exit 2; }
+command -v python3 >/dev/null 2>&1 || { echo "python3 not found; skipping" >&2; exit 77; }
+{ [ -n "$MP" ] && [ -x "$MP" ]; } || { echo "monpoly not found (set \$MONPOLY); skipping" >&2; exit 77; }
+[ -d "$TESTS" ] || { echo "monpoly-develop tests dir not found: $TESTS (arg 2 / \$TESTS); skipping" >&2; exit 77; }
+docker exec "$CTR" true 2>/dev/null || { echo "container $CTR not running; skipping" >&2; exit 77; }
 
 python3 "$here/extract_tests.py" "$TESTS" "$WORK/stage" > "$WORK/manifest_full.tsv" 2>"$WORK/ex.err"
 cat "$WORK/ex.err" >&2

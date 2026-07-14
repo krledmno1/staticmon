@@ -22,7 +22,7 @@ N=${2:-40}
 SEED=${3:-11}
 TRACES=${4:-3}
 NTP=${5:-40}
-MP=${MONPOLY:-/Users/krle/.opam/4.14.2/bin/monpoly}
+MP=${MONPOLY:-$(command -v monpoly 2>/dev/null || ls "$HOME"/.opam/*/bin/monpoly 2>/dev/null | head -1)}
 CTR=${CONTAINER:-smbench}
 CACHE=${CACHE:-$HOME/.cache/staticmon-bench-bin}
 # cwd is already this script's dir (test/behavioral) from the cd above.
@@ -30,8 +30,9 @@ BUILD=${BUILD:-"$(cd ../../scripts && pwd)/staticmon-build"}
 mkdir -p "$CACHE"
 WORK=$(mktemp -d); trap 'rm -rf "$WORK"' EXIT
 
-command -v "$MP" >/dev/null || { echo "monpoly not found: $MP"; exit 2; }
-docker exec "$CTR" true 2>/dev/null || { echo "container $CTR not running"; exit 2; }
+command -v python3 >/dev/null 2>&1 || { echo "python3 not found; skipping" >&2; exit 77; }
+{ [ -n "$MP" ] && [ -x "$MP" ]; } || { echo "monpoly not found (set \$MONPOLY); skipping" >&2; exit 77; }
+docker exec "$CTR" true 2>/dev/null || { echo "container $CTR not running; skipping" >&2; exit 77; }
 
 SIG=$(python3 gen_bench.py "$N" "$SEED" 2>&1 >"$WORK/formulas.txt")
 SIG=${SIG#SIG }
