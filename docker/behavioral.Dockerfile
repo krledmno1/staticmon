@@ -1,26 +1,59 @@
 # Native-arch image for the behavioral end-to-end oracle: a warm StaticMon
 # monitor build tree that recompiles ONE translation unit (staticmon.cpp) per
 # formula. Headers are injected from the host (docker cp) by the harness, so
-# this image does NOT need any MonPoly install. Built for the host architecture (no
-# emulation) for fast per-formula compiles.
+# this image does NOT need any MonPoly install. Built for the host architecture
+# (no emulation) for fast per-formula compiles.
 #
 #   docker build -f docker/behavioral.Dockerfile -t staticmon-bench .
 #   docker run -d --name smbench staticmon-bench sleep infinity
 #   # then, per formula: docker cp formula_in.h smbench:.../ ; docker exec ... ninja
 #
+# The compiler is selectable at build time (default: ubuntu 22.04 + clang 14,
+# the current shipping toolchain). To A/B a newer toolchain (step 4 of the
+# modernization plan), override the build args -- clang 19:
+#   docker build -f docker/behavioral.Dockerfile \
+#     --build-arg BASE=ubuntu:24.04 \
+#     --build-arg APT_COMPILER='clang-19 lld-19 libstdc++-14-dev' \
+#     --build-arg CC=clang-19 --build-arg CXX=clang++-19 \
+#     --build-arg CONAN_COMPILER_VERSION=19 \
+#     -t staticmon-bench:clang19 .
+# or gcc 14:
+#   docker build -f docker/behavioral.Dockerfile \
+#     --build-arg BASE=ubuntu:24.04 --build-arg APT_COMPILER='g++-14' \
+#     --build-arg CC=gcc-14 --build-arg CXX=g++-14 \
+#     --build-arg CONAN_COMPILER=gcc --build-arg CONAN_COMPILER_VERSION=14 \
+#     -t staticmon-bench:gcc14 .
+#
 # Build tuned for COMPILE speed, not runtime: Debug (-O0, no LTO, no
 # -march=native), jemalloc and the socket interface off. Traces are tiny
 # (<=100 timepoints) so runtime is irrelevant.
 
-FROM ubuntu:22.04
+ARG BASE=ubuntu:22.04
+FROM ${BASE}
+
+# Compiler selection (defaults = the current clang 14 toolchain).
+ARG APT_COMPILER="clang lld"
+ARG CC=clang
+ARG CXX=clang++
+ARG CONAN_COMPILER=clang
+ARG CONAN_COMPILER_VERSION=14
+
 RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install \
       --no-install-recommends -y \
-      ca-certificates git clang lld ninja-build cmake make \
-      python3 python3-pip libgmp10 \
+      ca-certificates git ninja-build cmake make \
+      python3 python3-pip libgmp10 ${APT_COMPILER} \
     && rm -rf /var/lib/apt/lists/*
-RUN pip3 install --no-cache-dir conan
-RUN ln -sf /usr/bin/ld.lld /usr/local/bin/ld
+# conan via pip. ubuntu 24.04's pip is PEP-668 externally-managed, so allow the
+# system install there; the fallback covers older pip (22.04) without the flag.
+RUN pip3 install --no-cache-dir --break-system-packages conan \
+      || pip3 install --no-cache-dir conan
+# If an lld was installed (clang variants), expose it as `ld`/`ld.lld`; clang
+# links through lld, gcc uses the default ld and ignores this.
+RUN lld_bin="$(ls /usr/bin/ld.lld-* /usr/bin/ld.lld 2>/dev/null | sort -V | tail -1 || true)"; \
+    if [ -n "$lld_bin" ]; then ln -sf "$lld_bin" /usr/local/bin/ld && ln -sf "$lld_bin" /usr/bin/ld.lld; fi
 
+ENV CC=${CC}
+ENV CXX=${CXX}
 COPY . /opt/staticmon
 WORKDIR /opt/staticmon
 
@@ -32,12 +65,12 @@ RUN case "$(dpkg --print-architecture)" in \
       *) echo "unsupported build arch: $(dpkg --print-architecture)" >&2; exit 1 ;; \
     esac && \
     printf '%s\n' \
-      '[settings]' 'os=Linux' "arch=$CONAN_ARCH" 'compiler=clang' \
-      'compiler.libcxx=libstdc++11' 'compiler.cppstd=20' 'compiler.version=14' \
+      '[settings]' 'os=Linux' "arch=$CONAN_ARCH" "compiler=${CONAN_COMPILER}" \
+      'compiler.libcxx=libstdc++11' 'compiler.cppstd=20' "compiler.version=${CONAN_COMPILER_VERSION}" \
       'build_type=Debug' \
       > profile
 RUN conan install . --output-folder=builddir --build=missing -pr:h=profile -pr:b=profile && \
-    CXX=clang++ CC=clang cmake -G Ninja \
+    cmake -G Ninja \
       -DCMAKE_TOOLCHAIN_FILE="$PWD/builddir/conan_toolchain.cmake" \
       -DCMAKE_BUILD_TYPE=Debug -DENABLE_IPO=OFF -DUSE_JEMALLOC=OFF \
       -DENABLE_SOCK_INTF=OFF -DENABLE_FILE_INPUT=ON \
