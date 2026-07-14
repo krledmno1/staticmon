@@ -256,21 +256,28 @@ staticmon = Monitor {..}
     prepareMonitor s f = do
       basedir <- RD.asks f_mon_path
       b <- RD.asks f_build_dir
-      let header_dir = basedir </> "src" </> "staticmon" </> "input_formula"
-          builddir = basedir </> T.unpack b
-          staticmonCompile = builddir </> "bin" </> "staticmon-headers"
-      -- native front-end: build it, generate the formula headers, then build
-      -- the specialized monitor (no MonPoly dependency).
+      let builddir = basedir </> T.unpack b
+          impl = basedir </> "scripts" </> "staticmon-impl"
+          headersBin = builddir </> "bin" </> "staticmon-headers"
+          outbin = takeDirectory f </> "staticmon.bin"
+      -- Compile the per-formula monitor through scripts/staticmon-impl, which
+      -- caches the built binary by (build_id, header-hash) under ~/.cache/staticmon
+      -- -- so re-running the same formulas is a copy, not a recompile. Same
+      -- builddir as before, so the measured binary is unchanged. Build the
+      -- front-end first (staticmon-impl requires it).
       runKeep "ninja" ["-C", builddir, "bin/staticmon-headers"] >>= \case
-        Left err -> return $ Left err
+        Left err -> return (Left err)
         Right _ ->
-          runDiscard staticmonCompile
-            ["-sig", s, "-formula", f, "-prefix", header_dir] >>= \case
-            Left err -> return $ Left err
-            Right _ ->
-              runKeep "ninja" ["-C", builddir] >>= \case
-                Left err -> return $ Left err
-                Right _ -> return $ Right (builddir </> "bin" </> "staticmon")
+          bash
+            basedir
+            ([] :: [T.Text])
+            ( "STATICMON_BUILDDIR='" ++ builddir ++ "' STATICMON_HEADERS='" ++ headersBin
+                ++ "' '" ++ impl ++ "' compile -sig '" ++ s ++ "' -formula '" ++ f
+                ++ "' -keep '" ++ outbin ++ "' -quiet"
+            )
+            >>= \case
+              Left err -> return (Left err)
+              Right _ -> return (Right outbin)
 
     runBenchmark exe _ _ l =
       benchmark (runDiscard exe ["--log", l])
