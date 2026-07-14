@@ -11,6 +11,7 @@ module EventGenerators
     OperatorBenchmark (..),
     BenchFeatures (..),
     benchFeatures,
+    benchCost,
     generateLogForBenchmark,
   )
 where
@@ -493,6 +494,25 @@ benchFeatures OperatorBenchmark {..} =
     twoSided _ _ = False
     untimed (CstBound 0) InfBound = True
     untimed _ _ = False
+
+-- | A rough proxy for how much work a benchmark's log is (timepoints x events),
+-- used to order benchmarks smallest-first so that a monitor timing out on a
+-- formula can be skipped on the (later, bigger) logs of the same formula.
+benchCost :: OperatorBenchmark -> Int
+benchCost OperatorBenchmark {..} = op_numts * op_numtpperts * max 1 (cfgSize op_config)
+  where
+    cfgSize (AndOperator AndConfig {..}) = ac_lsize + ac_rsize
+    cfgSize (OrOperator OrConfig {..}) = or_lsize + or_rsize
+    cfgSize (AntiJoinOperator AntiJoinConfig {..}) = aj_lsize + aj_rsize
+    cfgSize (ExistsOperator ExistsConfig {..}) = ex_size
+    cfgSize (OnceAndEqOperator OnceAndEqConfig {..}) = oa_eventrate
+    cfgSize (TemporalOperator TemporalConfig {..}) = subSize tc_suboperator
+    subSize (OnceOperator OnceConfig {..}) = oc_eventrate
+    subSize (EventuallyOperator EventuallyConfig {..}) = ev_eventrate
+    subSize (SinceOperator SinceConfig {..}) = si_eventrate
+    subSize (UntilOperator UntilConfig {..}) = ut_eventrate
+    subSize (PrevOperator PrevConfig {..}) = pr_size
+    subSize (NextOperator NextConfig {..}) = nx_size
 
 getBenchName :: OperatorBenchmark -> T.Text
 getBenchName OperatorBenchmark {..} =

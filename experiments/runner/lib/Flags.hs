@@ -16,7 +16,8 @@ data NestedFlags
   | BenchFlags
       { bf_reps :: Int,
         bf_out :: FilePath,
-        bf_config :: FilePath
+        bf_config :: FilePath,
+        bf_timeout :: Int -- per-run timeout in seconds (0 = none)
       }
   | RandomTestFlags
       { rt_ub :: Int64,
@@ -99,6 +100,15 @@ benchFlagsParser =
       <*> strOption
         ( long "bench_config"
             <> help "Config file for operator benchmarks"
+        )
+      <*> option
+        auto
+        ( long "timeout"
+            <> short 't'
+            <> metavar "SECONDS"
+            <> value 30
+            <> showDefault
+            <> help "Per-run timeout; a monitor that exceeds it is disqualified from larger logs of the same formula (0 = no timeout)"
         )
 
 testFlagsParser :: Parser NestedFlags

@@ -5,6 +5,7 @@ module Monitors
     staticmon,
     prepareAndRunMonitor,
     prepareAndBenchmarkMonitor,
+    benchTimedOut,
     verifyMonitor,
     VerificationFailure (..),
     Monitor (..),
@@ -19,12 +20,13 @@ import Data.Data (Typeable)
 import Data.Functor ((<&>))
 import Data.Text qualified as T
 import EventGenerators (BenchFeatures (..), OperatorBenchmark, benchFeatures)
-import Flags (Flags (..))
+import Flags (Flags (..), NestedFlags (..))
 import Process
 import System.Clock (Clock (Monotonic), diffTimeSpec, getTime, toNanoSecs)
 import System.Directory qualified as Dir
 import System.FilePath (takeDirectory, (</>))
 import UnliftIO (MonadIO (liftIO), throwIO)
+import UnliftIO.Timeout (timeout)
 
 default (T.Text)
 
@@ -241,10 +243,11 @@ dejavu = Monitor {..}
     runBenchmark (work, jar, scala) _ _ l = do
       _ <- xlate "dejavu" "trace" l (work </> "trace.timed.csv")
       benchmark
+        -- `exec` so a timeout terminates the JVM directly (bash is replaced by it)
         ( bash
             work
             ([] :: [T.Text])
-            ("'" ++ (scala </> "scala") ++ "' -cp '.:" ++ jar ++ "' TraceMonitor trace.timed.csv 20")
+            ("exec '" ++ (scala </> "scala") ++ "' -cp '.:" ++ jar ++ "' TraceMonitor trace.timed.csv 20")
         )
     runMonitor st s f l = runBenchmark st s f l >> return (Right "/dev/null")
 
@@ -286,11 +289,17 @@ monitorMonpoly v s f l =
 
 toSecsDouble = (/ 1e9) . fromInteger . toNanoSecs
 
+-- | A negative measured time signals the run was killed by the timeout.
+benchTimedOut :: Double -> Bool
+benchTimedOut = (< 0)
+
 benchmark a1 = do
+  secs <- RD.asks (bf_timeout . f_nes_flags)
   t0 <- liftIO $ getTime Monotonic
-  a1 >>= \case
-    Left _ -> error "benchmark failed"
-    Right _ -> do
+  (if secs > 0 then timeout (secs * 1000000) a1 else Just <$> a1) >>= \case
+    Nothing -> return (-1) -- timed out; the process was terminated
+    Just (Left _) -> error "benchmark failed"
+    Just (Right _) ->
       liftIO (getTime Monotonic)
         <&> toSecsDouble . (`diffTimeSpec` t0)
 
