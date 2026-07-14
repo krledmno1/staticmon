@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+# staticmon: the user-facing launcher. Runs the native build tree when present,
+# otherwise the docker image -- same command set either way (compile / run /
+# info / all-in-one, e.g. `staticmon -sig S -formula F -log T`).
+#
+# Overrides:
+#   STATICMON_MODE=native|docker|auto   default auto (prefer native, fall back
+#                                       to docker)
+#   STATICMON_IMAGE=<image>             docker image (default 'staticmon')
+#   STATICMON_HOME=<dir>                native build tree (default: repo root)
+#
+# In docker mode the cache lives in a named volume ('staticmon-cache'), and the
+# current directory is mounted at /work -- so pass paths relative to it.
+set -euo pipefail
+here="$(cd "$(dirname "$0")" && pwd)"
+IMPL="${STATICMON_IMPL:-$here/staticmon-impl}"
+HOME_DIR="${STATICMON_HOME:-$(dirname "$here")}"
+BUILDDIR="${STATICMON_BUILDDIR:-$HOME_DIR/builddir}"
+IMAGE="${STATICMON_IMAGE:-staticmon}"
+MODE="${STATICMON_MODE:-auto}"
+
+run_native() { STATICMON_HOME="$HOME_DIR" exec "$IMPL" "$@"; }
+run_docker() {
+  command -v docker >/dev/null 2>&1 || { echo "staticmon: docker not found" >&2; exit 2; }
+  exec docker run --rm -i \
+    -v staticmon-cache:/cache -v "$PWD":/work -w /work "$IMAGE" "$@"
+}
+native_ok() { [ -x "$IMPL" ] && [ -f "$BUILDDIR/BUILD_ID" ]; }
+image_ok()  { command -v docker >/dev/null 2>&1 && docker image inspect "$IMAGE" >/dev/null 2>&1; }
+
+case "$MODE" in
+  native) run_native "$@" ;;
+  docker) run_docker "$@" ;;
+  auto)
+    if   native_ok; then run_native "$@"
+    elif image_ok;  then echo "[staticmon] using docker image '$IMAGE'" >&2; run_docker "$@"
+    else echo "staticmon: no native build tree ($BUILDDIR) and no '$IMAGE' docker image" >&2; exit 2
+    fi ;;
+  *) echo "staticmon: invalid STATICMON_MODE '$MODE' (native|docker|auto)" >&2; exit 2 ;;
+esac

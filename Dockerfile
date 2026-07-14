@@ -4,12 +4,16 @@
 #   docker build -t staticmon .                          # native to the host (fast)
 #   docker build --platform linux/amd64 -t staticmon .   # portable x86-64 image (qemu on arm64)
 #
-#   docker run --rm -v "$PWD":/work staticmon \
-#     compile -sig formula.sig -formula formula.mfotl
-#   docker run --rm -v "$PWD":/work staticmon \
-#     run -monitor formula_staticmon -log trace.log
-#   cat trace.log | docker run -i --rm -v "$PWD":/work staticmon \
-#     run -monitor formula_staticmon
+#   # one-shot (compile is cached transparently; feels like a monitor):
+#   docker run --rm -i -v staticmon-cache:/cache -v "$PWD":/work staticmon \
+#     -sig formula.sig -formula formula.mfotl -log trace.log
+#   # or split -- compile once, run many:
+#   docker run --rm -v staticmon-cache:/cache -v "$PWD":/work staticmon \
+#     compile -sig formula.sig -formula formula.mfotl -keep mon
+#   docker run --rm -i -v staticmon-cache:/cache -v "$PWD":/work staticmon \
+#     run -monitor mon -log trace.log
+#
+# (The `staticmon` launcher wraps these invocations and picks native vs docker.)
 #
 # The image contains:
 #   - this repository, configured and compiled once (Clang 19 + ld.lld + Ninja;
@@ -18,8 +22,9 @@
 #   - the native front-end `staticmon-headers` (built from this repo) which
 #     turns a monitorable formula + signature into the two C++ headers that
 #     instantiate StaticMon's templates -- no OCaml / MonPoly dependency;
-#   - the entrypoint script (docker/staticmon-entrypoint.sh) wiring them
-#     together over the /work mount.
+#   - `scripts/staticmon-impl`, the dispatcher shared with the native workflow;
+#     it is the image ENTRYPOINT and caches per-formula binaries in the /cache
+#     volume (namespaced by build fingerprint, keyed by header hash).
 #
 # Notes:
 #   - Toolchain: Clang 19 on ubuntu 24.04. A statistically-significant A/B
@@ -91,9 +96,11 @@ RUN ninja -C builddir bin/staticmon-headers && \
       -prefix "$PWD/src/staticmon/input_formula" && \
     ninja -C builddir && test -x builddir/bin/staticmon
 
-COPY docker/staticmon-entrypoint.sh /usr/local/bin/staticmon-entrypoint
-RUN chmod +x /usr/local/bin/staticmon-entrypoint
+# The entrypoint is the same dispatcher used natively: compile / run / info /
+# all-in-one. The per-formula binary cache lives at /cache -- mount a named
+# volume there (the staticmon launcher does this) for it to persist across runs.
+ENV STATICMON_HOME=/opt/staticmon
+ENV STATICMON_CACHE=/cache
 
 WORKDIR /work
-VOLUME /work
-ENTRYPOINT ["staticmon-entrypoint"]
+ENTRYPOINT ["/opt/staticmon/scripts/staticmon-impl"]

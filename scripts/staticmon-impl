@@ -34,7 +34,9 @@ cleanup() { [ -n "$TMP" ] && rm -rf "$TMP"; [ -n "$LOCK" ] && rm -rf "$LOCK"; re
 trap cleanup EXIT INT TERM
 
 die() { echo "staticmon: $*" >&2; exit 2; }
-sha() { shasum -a 256 | cut -c1-"$1"; }   # $1 = truncation length
+# read stdin, print the first $1 hex chars of its sha256 (sha256sum on Linux,
+# shasum on macOS).
+sha() { { if command -v sha256sum >/dev/null 2>&1; then sha256sum; else shasum -a 256; fi; } | cut -c1-"$1"; }
 
 # ---- build fingerprint: compiler+version, target triple, monitor source, deps.
 # Namespacing the cache by this makes toolchain/source/dep changes miss the
