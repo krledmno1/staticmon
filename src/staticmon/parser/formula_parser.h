@@ -16,6 +16,7 @@
 // state merging does. Term parsing is greedy (e.g. after `x = 4` a `*` is
 // consumed into the term, as yacc's shift preference does).
 
+#include <algorithm>
 #include <cstdint>
 #include <staticmon/parser/formula_ast.h>
 #include <staticmon/parser/formula_lexer.h>

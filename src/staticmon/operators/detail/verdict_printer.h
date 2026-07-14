@@ -1,4 +1,5 @@
 #pragma once
+#include <algorithm>
 #include <boost/mp11.hpp>
 #include <cstdint>
 #include <fmt/format.h>

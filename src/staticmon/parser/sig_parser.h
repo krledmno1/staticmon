@@ -17,6 +17,7 @@
 //   - an empty argument token ("" from a quoted string) fails (Misc.nsplit
 //     returns [] for the empty string)
 
+#include <algorithm>
 #include <optional>
 #include <staticmon/parser/formula_ast.h>
 #include <string>

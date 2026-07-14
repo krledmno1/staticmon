@@ -1,5 +1,6 @@
 #pragma once
 #include <cstdint>
+#include <limits>
 #include <staticmon/common/table.h>
 #include <staticmon/input_formula/formula.h>
 #include <staticmon/operators/operators.h>
