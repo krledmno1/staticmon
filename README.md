@@ -180,8 +180,10 @@ container that `ctest` builds and starts automatically (a fixture).
 - Debug builds can be several orders of magnitude slower to run than release
   builds.
 - The Ninja compile step can produce very long template warnings.
-- Traces must be `;`-terminated; a malformed trace fails with a parse error
-  rather than being silently patched.
+- Traces are read in MonPoly format: `@<ts>` time-points delimited by `;` or by
+  the next `@` (so the trailing `;` is optional), one or more per line, `@`/`;`
+  inside quoted string arguments are respected. A malformed trace fails with a
+  parse error and a non-zero exit (not a silent patch or a crash).
 - Not yet supported by the front-end: regex operators (`MATCHF`/`MATCHP`),
   `FRZ`, `SUBSTRING`/`MATCHES`, and the string/date conversions (`i2s`, `s2i`,
   `f2s`, `s2f`, `r2s`, `s2r`, `DAY_OF_MONTH`, `MONTH`, `YEAR`, `FORMAT_DATE`).

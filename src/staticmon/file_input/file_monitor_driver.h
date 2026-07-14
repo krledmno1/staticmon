@@ -1,4 +1,5 @@
 #pragma once
+#include <cctype>
 #include <filesystem>
 #include <fstream>
 #include <optional>
@@ -15,12 +16,50 @@ public:
       : log_(std::ifstream(log_path)), monitor_(verdict_printer(verdict_path)) {
   }
   ~file_monitor_driver() noexcept override = default;
+
+  // Split the trace into time-points and monitor them incrementally. A
+  // time-point is `@ <ts> <db>`; it ends at a top-level ';' (emitted at once)
+  // or at the next top-level '@' (MonPoly also accepts an omitted ';'), or at
+  // EOF. '@' and ';' inside a quoted string argument are not delimiters. This
+  // accepts one- or multi-line time-points, with or without ';'.
   void do_monitor() override {
-    std::string db_str;
-    while (std::getline(log_, db_str)) {
-      auto [ts, db] = parser_.parse_database(db_str);
-      monitor_.step(db, make_vector(ts));
+    std::string tp;
+    bool in_str = false, esc = false, started = false;
+    char c;
+    auto flush = [&] {
+      if (tp.find_first_not_of(" \t\r\n") != std::string::npos) {
+        auto [ts, db] = parser_.parse_database(tp);
+        monitor_.step(db, make_vector(ts));
+      }
+      tp.clear();
+      started = false;
+    };
+    while (log_.get(c)) {
+      if (in_str) {
+        tp.push_back(c);
+        if (esc)
+          esc = false;
+        else if (c == '\\')
+          esc = true;
+        else if (c == '"')
+          in_str = false;
+        continue;
+      }
+      if (c == '"') {
+        in_str = true;
+        started = true;
+      } else if (c == '@' && started) {
+        flush();  // previous time-point had no ';'
+      } else if (c == ';') {
+        tp.push_back(c);
+        flush();  // ';' terminates the time-point
+        continue;
+      } else if (!std::isspace(static_cast<unsigned char>(c))) {
+        started = true;
+      }
+      tp.push_back(c);
     }
+    flush();  // trailing time-point without a ';'
     monitor_.last_step();
   }
 

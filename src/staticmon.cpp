@@ -4,6 +4,7 @@
 #include <absl/flags/usage.h>
 #include <absl/strings/string_view.h>
 #include <config.h>
+#include <iostream>
 #include <memory>
 #include <staticmon/monitor/monitor_driver.h>
 #include <stdexcept>
@@ -53,7 +54,17 @@ int main(int argc, char *argv[]) {
       new file_monitor_driver(absl::GetFlag(FLAGS_log), std::move(vpath)));
   }
 #endif
-  if (!driver)
-    throw std::runtime_error("selected input mode not compiled");
-  driver->do_monitor();
+  if (!driver) {
+    std::cerr << "staticmon: selected input mode not compiled in\n";
+    return 2;
+  }
+  // A malformed trace surfaces as a parse error (already reported with a caret
+  // by the parser); exit cleanly instead of aborting on an uncaught exception.
+  try {
+    driver->do_monitor();
+  } catch (const std::exception &e) {
+    std::cerr << "staticmon: " << e.what() << "\n";
+    return 1;
+  }
+  return 0;
 }

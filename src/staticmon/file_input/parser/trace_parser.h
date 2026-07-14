@@ -215,10 +215,11 @@ private:
       const auto &ptypes = pinfo.second;
       std::size_t n_args = ptypes.size();
       std::size_t p_id = pinfo.first;
-      // Parse everything
+      // Parse this predicate's tuples. Each tuple starts with '(', so stop as
+      // soon as the next token is not '(' -- at a new predicate name, ';', or
+      // end of the time-point chunk (which may omit the trailing ';').
       database_table tup_list;
-      while (scanner.branch(
-        dsl::peek_not(dsl::ascii::alpha_digit_underscore / dsl::semicolon))) {
+      while (scanner.branch(dsl::peek(dsl::lit_c<'('>))) {
         if (!scanner)
           return lexy::scan_failed;
         std::vector<event_data> tup;
@@ -272,9 +273,12 @@ private:
     // `whitespace` above enables automatic whitespace skipping between tokens
     // (lexy >= 2025 removed the bare `dsl::whitespace` rule; it is now a
     // function, and the auto-skip makes an explicit rule redundant).
+    // One time-point: `@ <ts> [<db>] [;]`. The trailing ';' is optional -- the
+    // driver delimits time-points at top-level '@'/';', so a chunk may or may
+    // not carry its ';'. The db is present iff a predicate name follows.
     RULE dsl::at_sign + dsl::p<ts_parse> +
-      dsl::opt(dsl::peek_not(dsl::semicolon) >> dsl::p<db_parse>) +
-      dsl::semicolon + dsl::if_(dsl::ascii::newline) + dsl::eof;
+      dsl::opt(dsl::peek(dsl::ascii::alpha_digit_underscore) >> dsl::p<db_parse>) +
+      dsl::if_(dsl::semicolon) + dsl::eof;
     VALUE lexy::callback<timestamped_database>(
       [](std::size_t &&ts,
          std::optional<parser_database> &&db) -> timestamped_database {
