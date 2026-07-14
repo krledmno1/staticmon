@@ -10,8 +10,11 @@ The preprocessing (parse, type-check, monitorability check, codegen) is done by
 `staticmon-headers`, staticmon's own dependency-free MFOTL front-end — no OCaml
 or MonPoly install is needed to build or run a monitor.
 
-There are two ways to work with staticmon: a **native** build tree, or a
-**self-contained Docker image**. Both are described below.
+You drive everything through one command, **`staticmon`**, which behaves like a
+normal monitor (à la MonPoly): hand it a signature and formula and it compiles a
+specialized monitor the first time, caches it, and monitors your trace. It runs
+the same whether backed by a **native** build tree or a **self-contained Docker
+image** — both are described below.
 
 ## Requirements
 
@@ -29,9 +32,10 @@ and Python 3.
 ### Docker
 
 - Docker.
-- Docker Desktop: enable file sharing for your working directory — the image
-  reads the signature/formula/log and writes the monitor binary through a
-  `-v "$PWD":/work` bind mount.
+- Docker Desktop: enable file sharing for your working directory — the current
+  directory is bind-mounted at `/work` so the image can read your
+  signature/formula/trace. (The per-formula binary cache lives in a Docker-managed
+  named volume, not in your directory.)
 - On Apple Silicon the image builds natively (arm64). Pass
   `--platform linux/amd64` for a portable x86-64 image (built under qemu).
 
@@ -43,16 +47,21 @@ image bundles the whole toolchain.
 ### Native
 
 ```
-./setup.sh                              # pick compiler and build mode
-./configure.sh                          # Conan installs deps, CMake configures builddir/
-ninja -C builddir bin/staticmon-headers # build the front-end
+./setup.sh                                        # pick compiler + build mode
+./configure.sh                                    # Conan installs deps; CMake configures builddir/
+cmake --build builddir --target staticmon-headers # build the front-end
 ```
 
-You now have `builddir/bin/staticmon-headers` and a configured build tree.
-Per-formula monitors are built from here in [Use](#use).
+That gives you a configured build tree and the front-end; `staticmon` compiles
+the per-formula monitor on demand from here (see [Use](#use)). Optionally put
+`staticmon` on your PATH — a thin launcher that uses this build tree:
 
-Note: The front-end is dependency-free and can also be built on its own, without
-Conan/CMake:
+```
+cmake --install builddir --prefix ~/.local        # -> ~/.local/bin/staticmon
+```
+
+The front-end is also buildable on its own, without Conan/CMake:
+
 ```
 clang++ -std=c++20 -I src -o staticmon-headers src/tools/staticmon-headers.cpp
 ```
@@ -65,104 +74,100 @@ docker build --platform linux/amd64 -t staticmon .   # portable x86-64 image
 ```
 
 The image is self-contained (ubuntu 24.04 + Clang 19, Release + LTO + jemalloc).
+To put a Docker-backed `staticmon` on your PATH (builds the image if needed):
+
+```
+scripts/install-docker.sh                            # -> ~/.local/bin/staticmon
+```
+
 No image is published to a registry yet; if one is, `docker pull` it instead.
 
 ## Use
 
-A staticmon monitor is specialized to a single `(signature, formula)` pair.
-So you first **compile the formula** into a monitor binary, then **monitor a
-log** with it.
+If you installed `staticmon` on your PATH, use `staticmon`; otherwise run
+`scripts/staticmon` from the repo. Either way the launcher prefers the native
+build tree and falls back to the Docker image (`STATICMON_MODE=native|docker`
+overrides).
 
-The formula syntax is MonPoly's; see [`docs/monpoly-grammar.md`](docs/monpoly-grammar.md).
-A signature declares the predicates and their argument types, e.g.
-`p(int) q(int,string)`.
+Formula syntax is MonPoly's; see [`docs/monpoly-grammar.md`](docs/monpoly-grammar.md).
+A signature declares predicate argument types, e.g. `p(int) q(int,string)`.
 
-### Compile the formula
-
-**Native.** `scripts/staticmon-build` is the one-shot interface: it generates
-the headers with `staticmon-headers`, compiles the per-formula monitor, and
-caches the binary by a hash of the headers — so recompiling the same formula is
-instant.
+### Monitor a trace
 
 ```
-scripts/staticmon-build -sig foo.sig -formula foo.mfotl -o foo_monitor
-# [compiled] 2eed8a2b...     (first time; runs ninja)
-scripts/staticmon-build -sig foo.sig -formula foo.mfotl -o foo_monitor
-# [cache hit] 2eed8a2b...    (instant)
+staticmon -sig bla.sig -formula bla.mfotl -log trace.log
+cat trace.log | staticmon -sig bla.sig -formula bla.mfotl     # or stream on stdin
 ```
 
-Useful options: `--builddir DIR` (configured tree, default `builddir`),
-`--cache-dir DIR` (default `$HOME/.cache/staticmon`, or `$STATICMON_CACHE`),
-`--no-cache` to force a recompile. It exits non-zero and prints the reason if
-the formula is not monitorable or is ill-typed.
-
-**Docker.** The `compile` subcommand builds `./<formula>_staticmon` in the
-mounted directory (also cached, by an md5 of the inputs):
-
-```
-docker run --rm -v "$PWD":/work staticmon compile -sig foo.sig -formula foo.mfotl
-# -> ./foo_staticmon
-```
-
-Two `staticmon-headers` modes are handy for scripting or checking against
-MonPoly:
-
-```
-staticmon-headers -sig foo.sig -formula foo.mfotl -check    # monitorability verdict
-staticmon-headers -sig foo.sig -formula foo.mfotl -sigout   # free-variable types
-```
-
-### Monitor the log
-
-The log is in MonPoly format: one timepoint per line, each terminated by `;`,
-with a `@<timestamp>` prefix.
+The trace is in MonPoly format — one timepoint per line, each terminated by `;`:
 
 ```
 @0 p(1) q(1,"a");
 @2 p(3);
 ```
 
-**Native:**
+Verdicts print as `@<ts> (time point <tp>): (<tuple>) ...`, one line per
+satisfied timepoint. Redirect them with `-verdicts FILE`; read events from a
+Unix socket instead of a trace with `-socket [PATH]`.
+
+The first run for a formula compiles the monitor (a few seconds); every later
+run is an instant cache hit. Binaries are cached under `~/.cache/staticmon`
+(override with `$STATICMON_CACHE`), or, in Docker, in a `staticmon-cache` volume
+— keyed by the formula and **namespaced by the toolchain fingerprint**, so a
+compiler/dependency/monitor-source change never serves a stale binary.
+
+### Compile once, run many
+
+To keep the monitor binary yourself:
 
 ```
-./foo_monitor --log foo.log
+staticmon compile -sig bla.sig -formula bla.mfotl -keep bla_monitor
+staticmon run -monitor bla_monitor -log trace.log
 ```
 
-**Docker** (pass a file, or stream on stdin):
+### Inspect a formula
 
 ```
-docker run --rm -v "$PWD":/work staticmon run -monitor foo_staticmon -log foo.log
-cat foo.log | docker run -i --rm -v "$PWD":/work staticmon run -monitor foo_staticmon
+staticmon info -sig bla.sig -formula bla.mfotl   # free-variable types + monitorability
 ```
 
-Verdicts print as `@<ts> (time point <tp>): (<tuple>) (<tuple>) ...`, one line
-per satisfied timepoint.
+Non-monitorable, ill-typed, malformed-interval and unbounded-future formulas are
+rejected with a MonPoly-compatible message (exit code 1).
 
 ## Testing
 
+Build the test tools, then run via `ctest`:
+
+```
+cmake --build builddir --target staticmon-headers parser_dump
+ctest --test-dir builddir              # everything (docker tests self-provision)
+ctest --test-dir builddir -L fast      # native-only: parser_diff + pipeline_diff
+ctest --test-dir builddir -L docker    # behavioral + monpoly_suite (needs docker)
+```
+
 ### Correctness
 
-The front-end and the compiled monitors are differentially tested against the
-newest MonPoly / VeriMon (need a native `monpoly` and Python 3):
+Differential tests against the newest MonPoly / VeriMon (a test with a missing
+dependency — monpoly, docker, the corpus, python3 — is reported *Skipped*, not
+failed):
 
-- `test/parser_diff/`   — C++ parser vs the MonPoly parser (canonical ASTs).
-- `test/pipeline_diff/` — `staticmon-headers` typing/monitorability vs
-                          `monpoly -sigout` / `monpoly -check`.
-- `test/behavioral/`    — compiled-monitor verdicts vs VeriMon (`monpoly -verified`)
-                          on random formulas + traces.
-- `test/monpoly_suite/` — replays MonPoly's own test corpus through staticmon and
-                          compares verdicts to VeriMon (288/288 in-fragment cases match).
+- `parser_diff`   — C++ parser vs the MonPoly parser (canonical ASTs).
+- `pipeline_diff` — `staticmon-headers` typing/monitorability vs
+                    `monpoly -sigout` / `monpoly -check`.
+- `behavioral`    — compiled-monitor verdicts vs VeriMon (`monpoly -verified`) on
+                    random formulas + traces.
+- `monpoly_suite` — replays MonPoly's own test corpus and compares verdicts to
+                    VeriMon (288/288 in-fragment cases match).
 
-The `behavioral` and `monpoly_suite` harnesses compile each formula in a warm
-`staticmon-bench` container built from `docker/behavioral.Dockerfile`, reusing
-`scripts/staticmon-build` for cached per-formula builds.
+The `docker`-labeled tests compile each formula in a warm `staticmon-bench`
+container that `ctest` builds and starts automatically (a fixture).
 
 ### Performance
 
 - `experiments/runner/` — a Haskell/cabal benchmark harness that generates
   traces and times monitors.
-- `docker/behavioral.Dockerfile` can build **optimized** variants (Release +
-  LTO + jemalloc + host-native codegen) and select the compiler via build args
+- `docker/behavioral.Dockerfile` can build **optimized** variants (Release + LTO
+  + jemalloc + host-native codegen) and select the compiler via build args
   (`BASE`, `APT_COMPILER`, `CC`/`CXX`, `CONAN_COMPILER[_VERSION]`, `BUILD_TYPE`,
   `ENABLE_IPO`, `USE_JEMALLOC`, `EXTRA_CXXFLAGS`), for compiler/flag A/B testing.
 
@@ -175,6 +180,8 @@ The `behavioral` and `monpoly_suite` harnesses compile each formula in a warm
 - Debug builds can be several orders of magnitude slower to run than release
   builds.
 - The Ninja compile step can produce very long template warnings.
+- Traces must be `;`-terminated; a malformed trace fails with a parse error
+  rather than being silently patched.
 - Not yet supported by the front-end: regex operators (`MATCHF`/`MATCHP`),
   `FRZ`, `SUBSTRING`/`MATCHES`, and the string/date conversions (`i2s`, `s2i`,
   `f2s`, `s2f`, `r2s`, `s2r`, `DAY_OF_MONTH`, `MONTH`, `YEAR`, `FORMAT_DATE`).
