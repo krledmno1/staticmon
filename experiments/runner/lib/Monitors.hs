@@ -222,21 +222,19 @@ dejavu = Monitor {..}
       let work = takeDirectory f </> "dejavu-work"
       rm_rf work
       mkdir work
-      jar <- siblingDir ("dejavu" </> "out" </> "artifacts" </> "dejavu_jar" </> "dejavu.jar")
+      repo <- siblingDir "dejavu"
       scala <- liftIO Dir.getHomeDirectory <&> (</> ".dejavu-scala")
+      let jar = repo </> "out" </> "artifacts" </> "dejavu_jar" </> "dejavu.jar"
+          compile = repo </> "dejavu-compile"
       xlate "dejavu" "formula" f (work </> "prop.qtl") >>= \case
         Left e -> return (Left e)
         Right _ ->
-          -- synthesize the monitor (java) then compile it (scalac 2.12), once per formula
+          -- cache-backed synth (java) + scalac, keyed by spec hash (dejavu-compile
+          -- caches the compiled classes under ~/.cache/dejavu), once per formula
           bash
             work
             ([] :: [T.Text])
-            ( "java -cp '" ++ jar ++ "' dejavu.Verify prop.qtl && '"
-                ++ (scala </> "scalac")
-                ++ "' -cp '"
-                ++ jar
-                ++ "' TraceMonitor.scala"
-            )
+            ("DEJAVU_SCALA='" ++ scala ++ "' '" ++ compile ++ "' prop.qtl .")
             >>= \case
               Left e -> return (Left e)
               Right _ -> return (Right (work, jar, scala))
