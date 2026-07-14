@@ -12,9 +12,9 @@
 #     run -monitor formula_staticmon
 #
 # The image contains:
-#   - this repository, configured and compiled once (Clang 14 + ld.lld +
-#     Ninja; dependencies resolved by Conan v1 at build time), so that a
-#     per-formula rebuild recompiles a single translation unit and relinks;
+#   - this repository, configured and compiled once (Clang 19 + ld.lld + Ninja;
+#     dependencies resolved by Conan 2 at build time), so that a per-formula
+#     rebuild recompiles a single translation unit and relinks;
 #   - the native front-end `staticmon_compile` (built from this repo) which
 #     turns a monitorable formula + signature into the two C++ headers that
 #     instantiate StaticMon's templates -- no OCaml / MonPoly dependency;
@@ -22,35 +22,40 @@
 #     together over the /work mount.
 #
 # Notes:
-#   - The Conan profile (Clang 14, matching upstream's setup.sh answers
-#     "Clang / 14 / release") derives its `arch` from the build host, so a plain
-#     `docker build` compiles natively -- fast on any host, including Apple
-#     Silicon. Pass `--platform linux/amd64` only when you want a portable
-#     x86-64 image (built under qemu on arm64; timings then aren't
-#     representative).
-#   - check_ipo_supported() is gated behind ENABLE_IPO in CMakeLists.txt, so
-#     configuring also works on toolchains without LTO support.
+#   - Toolchain: Clang 19 on ubuntu 24.04. A statistically-significant A/B
+#     (docker/behavioral.Dockerfile variants) found Clang 19 ~8.7% faster at
+#     runtime than Clang 14 on this monitor (and GCC 14 slower on both axes),
+#     at the cost of ~11% slower per-formula compiles -- a worthwhile trade for
+#     a deployment image, since compiles are one-time/cached and runtime is
+#     recurring.
+#   - Optimized for runtime: Release (-O3) + LTO (ENABLE_IPO, llvm-ar from the
+#     llvm-19 package) + jemalloc + host-native codegen (-march=native on
+#     x86-64, -mcpu=native on aarch64 -- Clang 19 resolves both in Docker's VM;
+#     Clang 14 could not do -march=native on aarch64).
+#   - The Conan profile derives its `arch` from the build platform (dpkg reports
+#     amd64/arm64, tracking `--platform` when set and the host otherwise), so a
+#     plain `docker build` compiles natively -- fast on any host, including
+#     Apple Silicon. Pass `--platform linux/amd64` only for a portable x86-64
+#     image (built under qemu on arm64; timings then aren't representative).
 
-FROM ubuntu:22.04
+FROM ubuntu:24.04
 RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install \
       --no-install-recommends -y \
-      ca-certificates git clang lld ninja-build cmake make \
-      python3 python3-pip libgmp10 \
+      ca-certificates git clang-19 lld-19 libstdc++-14-dev llvm-19 \
+      ninja-build cmake make python3 python3-pip libgmp10 \
     && rm -rf /var/lib/apt/lists/*
-RUN pip3 install --no-cache-dir conan
-# link through ld.lld (Clang LTO objects; GCC cannot be mixed in)
-RUN ln -sf /usr/bin/ld.lld /usr/local/bin/ld
+# ubuntu 24.04's pip is PEP-668 externally-managed; allow the system install.
+RUN pip3 install --no-cache-dir --break-system-packages conan
+# Expose the versioned lld as the default `ld` (Clang LTO objects link via lld).
+RUN lld_bin="$(ls /usr/bin/ld.lld-* /usr/bin/ld.lld 2>/dev/null | sort -V | tail -1)" && \
+    ln -sf "$lld_bin" /usr/local/bin/ld && ln -sf "$lld_bin" /usr/bin/ld.lld
+ENV CC=clang-19
+ENV CXX=clang++-19
 
 COPY . /opt/staticmon
 WORKDIR /opt/staticmon
 
-# A minimal Conan 2 profile matching ./setup.sh's "Clang / 14 / release". The
-# arch is taken from the build platform (dpkg reports amd64/arm64, which tracks
-# `--platform` when set and the host otherwise), so the image builds natively
-# unless a specific --platform is requested. (The monitor's optimization flags
-# come from CMakeLists' IPO, not the profile, so no custom CFLAGS are needed;
-# -march=native is intentionally omitted -- Clang 14 cannot resolve it for
-# aarch64 in Docker's VM.)
+# Conan 2 profile (Clang 19 / release). arch tracks the build platform.
 RUN case "$(dpkg --print-architecture)" in \
       amd64) CONAN_ARCH=x86_64 ;; \
       arm64) CONAN_ARCH=armv8 ;; \
@@ -58,15 +63,22 @@ RUN case "$(dpkg --print-architecture)" in \
     esac && \
     printf '%s\n' \
       '[settings]' 'os=Linux' "arch=$CONAN_ARCH" 'compiler=clang' \
-      'compiler.libcxx=libstdc++11' 'compiler.cppstd=20' 'compiler.version=14' \
+      'compiler.libcxx=libstdc++11' 'compiler.cppstd=20' 'compiler.version=19' \
       'build_type=Release' \
       > profile
 # conan resolves boost/abseil/fmt/jemalloc from conancenter and cmake fetches
-# lexy via FetchContent: this step needs network access at image build time
-RUN conan install . --output-folder=builddir --build=missing -pr:h=profile -pr:b=profile && \
-    CXX=clang++ CC=clang cmake -G Ninja -DUSE_JEMALLOC=ON \
+# lexy via FetchContent: this step needs network access at image build time.
+# Host-native codegen flag is x86-64 vs aarch64 specific.
+RUN case "$(dpkg --print-architecture)" in \
+      amd64) ARCH_FLAG='-march=native' ;; \
+      arm64) ARCH_FLAG='-mcpu=native' ;; \
+      *) ARCH_FLAG='' ;; \
+    esac && \
+    conan install . --output-folder=builddir --build=missing -pr:h=profile -pr:b=profile && \
+    cmake -G Ninja -DUSE_JEMALLOC=ON -DENABLE_IPO=ON \
       -DCMAKE_TOOLCHAIN_FILE="$PWD/builddir/conan_toolchain.cmake" \
-      -DCMAKE_BUILD_TYPE=Release -S . -B builddir
+      -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_FLAGS="$ARCH_FLAG" \
+      -S . -B builddir
 
 # Build the header generator (a dependency-free translation unit that does not
 # include the formula headers), prime the template monitor with a trivial
