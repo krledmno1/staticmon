@@ -1,0 +1,207 @@
+#!/usr/bin/env bash
+# staticmon-impl: the staticmon dispatcher (native). Subcommands:
+#
+#   staticmon compile -sig S -formula F [-keep P] [-no-cache] [-cache D] [-quiet]
+#       Turn (signature, formula) into a monitor binary. Prints the cached
+#       binary's path (or copies it to P with -keep). Cached by a hash of the
+#       generated headers, namespaced by a build fingerprint.
+#
+#   staticmon run -monitor M [-log FILE | -socket [PATH]] [-verdicts FILE]
+#       Run a compiled monitor. -log/-socket are mutually exclusive; if both are
+#       omitted the trace is read from standard input. Verdicts go to stdout
+#       (or -verdicts FILE).
+#
+#   staticmon info -sig S -formula F
+#       Print the formula's free-variable types and monitorability (no build).
+#
+#   staticmon -sig S -formula F [-log FILE | -socket [PATH]] [-verdicts FILE] \
+#             [-keep P] [-no-cache] [-cache D] [-quiet]
+#       All-in-one (compile then run) -- feels like a normal monitor.
+#
+# Environment: STATICMON_HOME (build tree; default: repo root), STATICMON_CACHE
+# (default: ~/.cache/staticmon), STATICMON_BUILDDIR, STATICMON_HEADERS.
+set -euo pipefail
+
+self="$(cd "$(dirname "$0")" && pwd)"
+STATICMON_HOME="${STATICMON_HOME:-$(dirname "$self")}"
+BUILDDIR="${STATICMON_BUILDDIR:-$STATICMON_HOME/builddir}"
+HEADERS_BIN="${STATICMON_HEADERS:-$BUILDDIR/bin/staticmon-headers}"
+CACHE="${STATICMON_CACHE:-$HOME/.cache/staticmon}"
+INPUT_PREFIX="$STATICMON_HOME/src/staticmon/input_formula"
+
+TMP="" LOCK=""
+cleanup() { [ -n "$TMP" ] && rm -rf "$TMP"; [ -n "$LOCK" ] && rm -rf "$LOCK"; return 0; }
+trap cleanup EXIT INT TERM
+
+die() { echo "staticmon: $*" >&2; exit 2; }
+sha() { shasum -a 256 | cut -c1-"$1"; }   # $1 = truncation length
+
+# ---- build fingerprint: compiler+version, target triple, monitor source, deps.
+# Namespacing the cache by this makes toolchain/source/dep changes miss the
+# cache instead of serving a stale (or cross-target) binary. Slice 4 will bake
+# it at configure time into $STATICMON_HOME/BUILD_ID (read fast-path below).
+build_id() {
+  if [ -f "$STATICMON_HOME/BUILD_ID" ]; then cat "$STATICMON_HOME/BUILD_ID"; return; fi
+  local cxx ver triple
+  cxx=$(sed -n 's/^CMAKE_CXX_COMPILER:[^=]*=//p' "$BUILDDIR/CMakeCache.txt" 2>/dev/null || true)
+  [ -n "$cxx" ] || die "no configured build tree at $BUILDDIR (run ./configure.sh first)"
+  ver=$("$cxx" --version 2>/dev/null | head -1 || echo '?')
+  triple=$("$cxx" -dumpmachine 2>/dev/null || echo '?')
+  { printf '%s\0%s\0%s\0' "$cxx" "$ver" "$triple"
+    find "$STATICMON_HOME/src/staticmon" -name '*.h' ! -path '*input_formula*' -type f \
+      -exec cat {} + 2>/dev/null || true
+    cat "$STATICMON_HOME/conanfile.txt" 2>/dev/null || true
+  } | sha 16
+}
+
+# ---- portable lock (macOS has no flock(1)): atomic mkdir + stale-pid steal.
+acquire_lock() {
+  LOCK="$1"; local waited=0 pid
+  until mkdir "$LOCK" 2>/dev/null; do
+    pid=$(cat "$LOCK/pid" 2>/dev/null || true)
+    if [ -n "$pid" ] && ! kill -0 "$pid" 2>/dev/null; then rm -rf "$LOCK"; continue; fi
+    sleep 0.2; waited=$((waited + 1))
+    [ "$waited" -gt 900 ] && die "timed out waiting for the build lock ($LOCK)"
+  done
+  echo $$ > "$LOCK/pid"
+}
+release_lock() { rm -rf "$LOCK"; LOCK=""; }
+
+# ============================ subcommands ============================
+
+do_compile() {
+  local sig="" formula="" keep="" no_cache=0 quiet=0
+  while [ $# -gt 0 ]; do case "$1" in
+    -sig) sig=$2; shift 2;;
+    -formula) formula=$2; shift 2;;
+    -keep) keep=$2; shift 2;;
+    -no-cache) no_cache=1; shift;;
+    -cache) CACHE=$2; shift 2;;
+    -quiet) quiet=1; shift;;
+    *) die "compile: unknown option '$1'";;
+  esac; done
+  [ -n "$sig" ] && [ -n "$formula" ] || die "compile requires -sig SIG and -formula FORMULA"
+  [ -f "$sig" ]     || die "signature not found: $sig"
+  [ -f "$formula" ] || die "formula not found: $formula"
+  [ -x "$HEADERS_BIN" ] || die "front-end not built: $HEADERS_BIN (build 'staticmon-headers' first)"
+  log() { [ "$quiet" -eq 1 ] || echo "$@" >&2; }
+
+  TMP=$(mktemp -d "${TMPDIR:-/tmp}/staticmon.XXXXXX")
+  # 1. Front-end: generate + validate. Rejection (non-monitorable/ill-typed) -> exit 1.
+  if ! "$HEADERS_BIN" -sig "$sig" -formula "$formula" -prefix "$TMP" 2>"$TMP/err"; then
+    cat "$TMP/err" >&2; exit 1
+  fi
+  local hh bid dir bin
+  hh=$(cat "$TMP/formula_in.h" "$TMP/formula_csts.h" | sha 32)
+  bid=$(build_id)
+  dir="$CACHE/$bid"; bin="$dir/bin/$hh"
+  mkdir -p "$dir/bin"
+
+  # 2. Cache hit (lock-free).
+  if [ "$no_cache" -eq 0 ] && [ -x "$bin" ]; then
+    log "[cache hit] $bid/$hh"
+    rm -rf "$TMP"; TMP=""
+    [ -n "$keep" ] && cp "$bin" "$keep"; echo "$bin"; return 0
+  fi
+
+  # 3. Miss: serialize the shared-tree compile; re-check under the lock.
+  acquire_lock "$dir/.lockdir"
+  if [ "$no_cache" -eq 1 ] || [ ! -x "$bin" ]; then
+    cp "$TMP/formula_in.h" "$TMP/formula_csts.h" "$INPUT_PREFIX/"
+    if ! ninja -C "$BUILDDIR" bin/staticmon >"$TMP/build.log" 2>&1; then
+      cat "$TMP/build.log" >&2; release_lock; exit 2
+    fi
+    cp "$BUILDDIR/bin/staticmon" "$dir/bin/.$hh.$$"   # stage on the cache filesystem
+    mv -f "$dir/bin/.$hh.$$" "$bin"                    # atomic publish
+    mkdir -p "$dir/headers/$hh"
+    cp "$TMP/formula_in.h" "$TMP/formula_csts.h" "$dir/headers/$hh/"
+    log "[compiled] $bid/$hh"
+  else
+    log "[cache hit] $bid/$hh"                          # someone compiled it while we waited
+  fi
+  release_lock
+  rm -rf "$TMP"; TMP=""
+  [ -n "$keep" ] && cp "$bin" "$keep"; echo "$bin"
+}
+
+do_run() {
+  local monitor="" log_in="" socket="" socket_set=0 verdicts=""
+  while [ $# -gt 0 ]; do case "$1" in
+    -monitor) monitor=$2; shift 2;;
+    -log) log_in=$2; shift 2;;
+    -socket) socket_set=1; shift
+             case "${1:-}" in ""|-*) socket="cppmon_uds";; *) socket=$1; shift;; esac;;
+    -verdicts) verdicts=$2; shift 2;;
+    *) die "run: unknown option '$1'";;
+  esac; done
+  [ -n "$monitor" ] || die "run requires -monitor MONITOR"
+  [ -x "$monitor" ] || die "monitor not found or not executable: $monitor"
+  [ -n "$log_in" ] && [ "$socket_set" -eq 1 ] && die "-log and -socket are mutually exclusive"
+  local args=()
+  if [ "$socket_set" -eq 1 ]; then args=(--use_socket --socket_path "$socket")
+  else args=(--log "${log_in:-/dev/stdin}"); fi
+  [ -n "$verdicts" ] && args+=(--vpath "$verdicts")
+  exec "$monitor" "${args[@]}"
+}
+
+do_info() {
+  local sig="" formula=""
+  while [ $# -gt 0 ]; do case "$1" in
+    -sig) sig=$2; shift 2;;
+    -formula) formula=$2; shift 2;;
+    *) die "info: unknown option '$1'";;
+  esac; done
+  [ -n "$sig" ] && [ -n "$formula" ] || die "info requires -sig SIG and -formula FORMULA"
+  [ -x "$HEADERS_BIN" ] || die "front-end not built: $HEADERS_BIN"
+  echo "== free variables =="
+  "$HEADERS_BIN" -sig "$sig" -formula "$formula" -sigout || true
+  echo "== monitorability =="
+  "$HEADERS_BIN" -sig "$sig" -formula "$formula" -check || true
+}
+
+do_all() {  # union of compile + run; feels like a monitor
+  local sig="" formula="" log_in="" socket_args=() socket_set=0 verdicts="" \
+        keep="" no_cache=0 quiet=0
+  while [ $# -gt 0 ]; do case "$1" in
+    -sig) sig=$2; shift 2;;
+    -formula) formula=$2; shift 2;;
+    -log) log_in=$2; shift 2;;
+    -socket) socket_set=1; shift
+             case "${1:-}" in ""|-*) socket_args=(-socket);; *) socket_args=(-socket "$1"); shift;; esac;;
+    -verdicts) verdicts=$2; shift 2;;
+    -keep) keep=$2; shift 2;;
+    -no-cache) no_cache=1; shift;;
+    -cache) CACHE=$2; shift 2;;
+    -quiet) quiet=1; shift;;
+    *) die "unknown option '$1'";;
+  esac; done
+  [ -n "$sig" ] && [ -n "$formula" ] || die "requires -sig SIG and -formula FORMULA"
+  [ -n "$log_in" ] && [ "$socket_set" -eq 1 ] && die "-log and -socket are mutually exclusive"
+
+  local cargs=(-sig "$sig" -formula "$formula" -cache "$CACHE")
+  [ -n "$keep" ]      && cargs+=(-keep "$keep")
+  [ "$no_cache" -eq 1 ] && cargs+=(-no-cache)
+  [ "$quiet" -eq 1 ]    && cargs+=(-quiet)
+  local bin
+  bin=$(do_compile "${cargs[@]}")            # separate decl/assign so set -e sees the status
+
+  local rargs=(-monitor "$bin")
+  if [ "$socket_set" -eq 1 ]; then rargs+=("${socket_args[@]}")
+  elif [ -n "$log_in" ];      then rargs+=(-log "$log_in"); fi
+  [ -n "$verdicts" ] && rargs+=(-verdicts "$verdicts")
+  do_run "${rargs[@]}"
+}
+
+usage() {
+  sed -n '2,26p' "$0" | sed 's/^# \{0,1\}//' >&2
+  exit 2
+}
+
+case "${1:-}" in
+  compile) shift; do_compile "$@";;
+  run)     shift; do_run "$@";;
+  info)    shift; do_info "$@";;
+  -*)      do_all "$@";;
+  "")      usage;;
+  *)       die "unknown subcommand '$1' (expected compile|run|info, or -sig ... for all-in-one)";;
+esac
