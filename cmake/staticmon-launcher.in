@@ -1,0 +1,7 @@
+#!/bin/sh
+# staticmon launcher, installed by `cmake --install`. A thin pointer at the tree
+# it was built in -- staticmon compiles a monitor per formula at runtime, so it
+# needs that build environment available. Runs native when the tree is
+# configured, otherwise falls back to the docker image; STATICMON_MODE overrides.
+exec env STATICMON_HOME='@SM_HOME@' STATICMON_BUILDDIR='@SM_BUILDDIR@' \
+  '@SM_HOME@/scripts/staticmon' "$@"

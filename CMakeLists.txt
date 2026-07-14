@@ -126,3 +126,14 @@ include(CTest)
 if(BUILD_TESTING AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/test/CMakeLists.txt")
   add_subdirectory(test)
 endif()
+
+# --- Install: put `staticmon` on PATH. -----------------------------------------
+# `cmake --install` lays down a thin launcher pointing back at this source/build
+# tree (native-preferred, docker fallback). It is not a relocatable copy, by
+# design: staticmon compiles a monitor per formula at runtime and so needs this
+# build environment. For a self-contained docker install, see scripts/install-docker.sh.
+set(SM_HOME "${CMAKE_SOURCE_DIR}")
+set(SM_BUILDDIR "${CMAKE_BINARY_DIR}")
+configure_file("${CMAKE_SOURCE_DIR}/cmake/staticmon-launcher.in"
+               "${CMAKE_BINARY_DIR}/staticmon-installed" @ONLY)
+install(PROGRAMS "${CMAKE_BINARY_DIR}/staticmon-installed" TYPE BIN RENAME staticmon)
