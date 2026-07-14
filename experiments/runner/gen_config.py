@@ -195,7 +195,44 @@ onceandbench = [
 # config = andbench + orbench + existsbench + \
 #     sincebench + oncebench + eventuallybench + prevnxtbench
 
-config = sincebench
+# --- Multi-monitor comparison (staticmon / monpoly / timelymon / whymon / dejavu) ---
+# The benchmark runner runs each formula only on the monitors whose fragment
+# covers it (Monitors.supportsBenchmark). The groups below span the fragment
+# tiers so the output shows a four/five-way comparison on the common (past-time,
+# first-order, one-sided-metric) fragment and a subset comparison outside it.
+
+# Past-time common fragment -> runs on ALL monitors (incl. dejavu).
+common_and = [make_op_benchmark(100, {"andoperator": {
+    "lsize": s, "rsize": s, "n1": 2, "n2": 2, "opts": {"fixedcommon": 1}}})
+    for s in [300, 1000]]
+common_or = [make_op_benchmark(100, {"oroperator": {
+    "lsize": s, "rsize": s, "nvars": 5, "opts": "samelayout"}})
+    for s in [300, 1000]]
+common_exists = [make_op_benchmark(100, {"existsoperator": {
+    "n": 1, "predn": 5, "size": s}}) for s in [300, 1000]]
+common_antijoin = [make_op_benchmark(100, {"antijoinoperator": {
+    "lsize": 1000, "rsize": 300, "matchprobability": 0.5,
+    "vars": {"randomsubset": [3, 1]}}})]
+# one-sided metric [0,d] and unbounded [d,*) once / since, untimed previous
+common_once = [make_temporal_bench(200, 1, cstb(0), ub,
+               {"onceoperator": {"eventrate": 200, "nvars": 1}})
+               for ub in [cstb(10), infb()]]
+common_since = [make_temporal_bench(200, 1, cstb(0), cstb(10),
+                {"sinceoperator": {"eventrate": 200,
+                 "vars": {"randomsubset": [1, 3]}, "negate": False,
+                 "removeprobability": 0.001}})]
+common_prev = [make_temporal_bench(5000, 1, cstb(0), infb(),
+               {"prevoperator": {"size": 2}})]
+commonbench = (common_and + common_or + common_exists + common_antijoin
+               + common_once + common_since + common_prev)
+
+# Outside the common fragment -> compared on the supporting subset only (no dejavu).
+future_bench = [make_temporal_bench(200, 1, cstb(0), cstb(10),
+                {"eventuallyoperator": {"eventrate": 200, "nvars": 1}})]
+twosided_bench = [make_temporal_bench(200, 1, cstb(5), cstb(10),
+                  {"onceoperator": {"eventrate": 200, "nvars": 1}})]
+
+config = commonbench + future_bench + twosided_bench
 
 print(len(config))
 with open("config.yaml", 'w', encoding='utf8') as conf_out:

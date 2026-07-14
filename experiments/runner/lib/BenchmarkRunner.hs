@@ -32,6 +32,7 @@ import Monitors
   ( monitorName,
     monitors,
     prepareAndBenchmarkMonitor,
+    supportsBenchmark,
   )
 import Process (mkdir, rm_rf)
 import System.FilePath ((</>))
@@ -98,8 +99,10 @@ runMonitorBenchmark bench builder =
                 builder
                 (monitorItPairs reps)
   where
+    -- Only benchmark the monitors whose fragment covers this formula; a formula
+    -- outside the common fragment is thus compared on just the supporting subset.
     monitorItPairs reps =
-      liftA2 (,) monitors [0 .. (reps - 1)]
+      liftA2 (,) (filter (`supportsBenchmark` bench) monitors) [0 .. (reps - 1)]
 
 runBenchmarks' = do
   outpath <- RD.asks (bf_out . f_nes_flags)

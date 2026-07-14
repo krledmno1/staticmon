@@ -9,6 +9,8 @@ module EventGenerators
     getBenchName,
     OperatorConfig (..),
     OperatorBenchmark (..),
+    BenchFeatures (..),
+    benchFeatures,
     generateLogForBenchmark,
   )
 where
@@ -460,6 +462,37 @@ addEventsSlidingWindow evs SlidingWindow {..} =
   if zeroInInterval sl_intv
     then SlidingWindow {sl_inwindow = sl_inwindow :|> (sl_currts, evs), ..}
     else SlidingWindow {sl_prewindow = sl_prewindow :|> (sl_currts, evs), ..}
+
+-- | Logical features a benchmark's formula uses, so a monitor can decide
+-- whether the formula is in its fragment. (Which monitor supports which feature
+-- is decided in Monitors.hs.) The current operator microbenchmarks are all
+-- first-order past/future MFOTL with no aggregations, so only the temporal
+-- shapes vary; DejaVu is the only monitor these features constrain.
+data BenchFeatures = BenchFeatures
+  { usesFuture :: Bool, -- next / eventually / until
+    usesTwoSidedInterval :: Bool, -- [l,u] with l>0 and u finite
+    usesMetricPrev :: Bool, -- previous with a non-trivial interval
+    usesAggregation :: Bool -- SUM/CNT/... (none in the microbenchmarks)
+  }
+
+benchFeatures :: OperatorBenchmark -> BenchFeatures
+benchFeatures OperatorBenchmark {..} =
+  case op_config of
+    TemporalOperator TemporalConfig {..} ->
+      case tc_suboperator of
+        OnceOperator _ -> base {usesTwoSidedInterval = twoSided tc_lbound tc_ubound}
+        SinceOperator _ -> base {usesTwoSidedInterval = twoSided tc_lbound tc_ubound}
+        PrevOperator _ -> base {usesMetricPrev = not (untimed tc_lbound tc_ubound)}
+        EventuallyOperator _ -> base {usesFuture = True}
+        NextOperator _ -> base {usesFuture = True}
+        UntilOperator _ -> base {usesFuture = True}
+    _ -> base -- And / Or / AntiJoin / Exists / OnceAndEq: pure past FO
+  where
+    base = BenchFeatures False False False False
+    twoSided (CstBound l) (CstBound _) = l > 0
+    twoSided _ _ = False
+    untimed (CstBound 0) InfBound = True
+    untimed _ _ = False
 
 getBenchName :: OperatorBenchmark -> T.Text
 getBenchName OperatorBenchmark {..} =

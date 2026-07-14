@@ -18,10 +18,12 @@ import Control.Monad.Trans.Resource (ResourceT)
 import Data.Data (Typeable)
 import Data.Functor ((<&>))
 import Data.Text qualified as T
+import EventGenerators (BenchFeatures (..), OperatorBenchmark, benchFeatures)
 import Flags (Flags (..))
 import Process
 import System.Clock (Clock (Monotonic), diffTimeSpec, getTime, toNanoSecs)
-import System.FilePath ((</>))
+import System.Directory qualified as Dir
+import System.FilePath (takeDirectory, (</>))
 import UnliftIO (MonadIO (liftIO), throwIO)
 
 default (T.Text)
@@ -60,6 +62,11 @@ data Monitor = forall s.
       FilePath -> -- Formula file
       FilePath -> -- Log file
       FlagsResource (Either FilePath FilePath), -- stderr or stdout
+    -- | Whether this monitor's fragment covers the benchmark's formula. The
+    -- benchmark runner only runs a monitor on benchmarks it supports, so a
+    -- formula outside the common fragment is compared on just the supporting
+    -- subset of monitors.
+    supportsBenchmark :: OperatorBenchmark -> Bool,
     monitorName :: T.Text
   }
 
@@ -108,13 +115,14 @@ verifyMonitor args =
     aErr = return . Left
 
 monitors :: [Monitor]
-monitors = []
+monitors = [staticmon, monpoly, timelymon, whymon, dejavu]
 
 monpoly = Monitor {..}
   where
     prepareMonitor _ _ = return (Right ())
     runBenchmark _ = benchmarkMonpoly False
     runMonitor _ = monitorMonpoly False
+    supportsBenchmark = const True
     monitorName = "monpoly"
 
 verimon = Monitor {..}
@@ -122,6 +130,7 @@ verimon = Monitor {..}
     prepareMonitor _ _ = return (Right ())
     runBenchmark _ = benchmarkMonpoly True
     runMonitor _ = monitorMonpoly True
+    supportsBenchmark = const True
     monitorName = "verimon"
 
 cppmon = Monitor {..}
@@ -134,7 +143,110 @@ cppmon = Monitor {..}
       benchmark (runDiscard "cppmon" (opts s f l))
     runMonitor f s _ l =
       runKeep "cppmon" (opts s f l)
+    supportsBenchmark = const True
     monitorName = "cppmon"
+
+-- --------------------------------------------------------------------------
+-- External monitors (dejavu, timelymon, whymon). Their sig/formula/trace are
+-- translated from the harness's MonPoly format by experiments/runner/translate.py
+-- (never inside a timed region). Tool binaries are the sibling repos of the
+-- staticmon prefix; Scala 2.12 (for dejavu) lives in ~/.dejavu-scala.
+-- --------------------------------------------------------------------------
+
+runnerScript = RD.asks ((</> "experiments" </> "runner" </> "translate.py") . f_mon_path)
+
+siblingDir sub = RD.asks ((\p -> takeDirectory p </> sub) . f_mon_path)
+
+-- Translate a MonPoly sig/formula/trace file into a tool's format.
+xlate tool kind inp outp = do
+  sc <- runnerScript
+  runDiscard "python3" [sc, "--to", tool, "--kind", kind, inp, outp]
+
+-- Chain two translations (sig then formula), returning the output paths.
+prepareTranslate tool s f =
+  let s' = s ++ "." ++ tool
+      f' = f ++ "." ++ tool
+   in xlate tool "sig" s s' >>= \case
+        Left e -> return (Left e)
+        Right _ ->
+          xlate tool "formula" f f' >>= \case
+            Left e -> return (Left e)
+            Right _ -> return (Right (s', f'))
+
+timelymon = Monitor {..}
+  where
+    supportsBenchmark = const True -- MFOTL superset (no regex in the benchmarks)
+    monitorName = "timelymon"
+    prepareMonitor = prepareTranslate "timelymon"
+    runBenchmark (s', f') _ _ l = do
+      let l' = l ++ ".timelymon"
+      _ <- xlate "timelymon" "trace" l l'
+      bin <- siblingDir ("timelymon" </> "target" </> "release" </> "timelymon")
+      benchmark (runDiscard bin [f', l', "--sig-file", s', "-w", "1", "-m", "3"])
+    runMonitor (s', f') _ _ l = do
+      let l' = l ++ ".timelymon"
+      _ <- xlate "timelymon" "trace" l l'
+      bin <- siblingDir ("timelymon" </> "target" </> "release" </> "timelymon")
+      runKeep bin [f', l', "--sig-file", s', "-w", "1", "-m", "1"]
+
+whymon = Monitor {..}
+  where
+    supportsBenchmark b = not (usesAggregation (benchFeatures b))
+    monitorName = "whymon"
+    prepareMonitor = prepareTranslate "whymon"
+    runBenchmark (s', f') _ _ l = do
+      let l' = l ++ ".whymon"
+      _ <- xlate "whymon" "trace" l l'
+      bin <- siblingDir ("whymon" </> "bin" </> "whymon.exe")
+      benchmark
+        ( runDiscard
+            bin
+            ["-sig", s', "-formula", f', "-log", l', "-mode", "unverified", "-measure", "size", "-out", "/dev/null"]
+        )
+    runMonitor (s', f') _ _ l = do
+      let l' = l ++ ".whymon"
+      _ <- xlate "whymon" "trace" l l'
+      bin <- siblingDir ("whymon" </> "bin" </> "whymon.exe")
+      runKeep bin ["-sig", s', "-formula", f', "-log", l', "-mode", "light"]
+
+dejavu = Monitor {..}
+  where
+    -- past-only, one-sided metric, no future/aggregation
+    supportsBenchmark b =
+      let BenchFeatures {..} = benchFeatures b
+       in not (usesFuture || usesTwoSidedInterval || usesMetricPrev || usesAggregation)
+    monitorName = "dejavu"
+    prepareMonitor _ f = do
+      let work = takeDirectory f </> "dejavu-work"
+      rm_rf work
+      mkdir work
+      jar <- siblingDir ("dejavu" </> "out" </> "artifacts" </> "dejavu_jar" </> "dejavu.jar")
+      scala <- liftIO Dir.getHomeDirectory <&> (</> ".dejavu-scala")
+      xlate "dejavu" "formula" f (work </> "prop.qtl") >>= \case
+        Left e -> return (Left e)
+        Right _ ->
+          -- synthesize the monitor (java) then compile it (scalac 2.12), once per formula
+          bash
+            work
+            ([] :: [T.Text])
+            ( "java -cp '" ++ jar ++ "' dejavu.Verify prop.qtl && '"
+                ++ (scala </> "scalac")
+                ++ "' -cp '"
+                ++ jar
+                ++ "' TraceMonitor.scala"
+            )
+            >>= \case
+              Left e -> return (Left e)
+              Right _ -> return (Right (work, jar, scala))
+    runBenchmark (work, jar, scala) _ _ l = do
+      _ <- xlate "dejavu" "trace" l (work </> "trace.timed.csv")
+      benchmark
+        ( bash
+            work
+            ([] :: [T.Text])
+            ("'" ++ (scala </> "scala") ++ "' -cp '.:" ++ jar ++ "' TraceMonitor trace.timed.csv 20")
+        )
+    runMonitor st s f l = runBenchmark st s f l >> return (Right "/dev/null")
 
 staticmon = Monitor {..}
   where
@@ -162,6 +274,7 @@ staticmon = Monitor {..}
     runMonitor exe _ _ l =
       runKeep exe ["--log", l]
 
+    supportsBenchmark = const True
     monitorName = "staticmon"
 
 monpolyBaseOpts s f = ["-formula", f, "-sig", s, "-no_rw", "-nofilteremptytp"]
