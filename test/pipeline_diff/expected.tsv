@@ -1,0 +1,455 @@
+p(x)	x:int	OK
+r(x,y)	x:int, y:int	OK
+p(5)		OK
+r(x,5)	x:int	OK
+ONCE[0,10] p(x)	x:int	OK
+ONCE p(x)	x:int	OK
+EVENTUALLY[0,5] p(x)	x:int	OK
+PREV[1,2] p(x)	x:int	OK
+NEXT p(x)	x:int	OK
+ONCE[2,*) r(x,y)	x:int, y:int	OK
+p(x) AND q(x)	x:int	OK
+p(x) AND r(x,y)	x:int, y:int	OK
+r(x,y) AND s(y,z)	x:int, y:int, z:int	OK
+p(x) OR q(x)	x:int	OK
+(p(x) AND q(x)) OR (r(x,y) AND s(x,y))	x:int, y:int	NOT
+p(x) AND NOT q(x)	x:int	OK
+r(x,y) AND NOT s(x,y)	x:int, y:int	OK
+p(x) AND x = 5	x:int	OK
+r(x,y) AND x = y	x:int, y:int	OK
+p(x) AND x < 5	x:int	OK
+p(x) AND NOT x = 5	x:int	OK
+r(x,y) AND x <= y	x:int, y:int	OK
+EXISTS x. p(x)		OK
+EXISTS x. r(x,y)	y:int	OK
+EXISTS x, y. s(x,y)		OK
+EXISTS y. (r(x,y) AND q(y))	x:int	OK
+EXISTS y. (p(x) AND y = x)	x:int	OK
+p(x) SINCE q(x)	x:int	OK
+p(x) SINCE[0,10] q(x)	x:int	OK
+q(x) SINCE (NOT p(x))	x:int	NOT
+r(x,y) UNTIL[0,5] s(x,y)	x:int, y:int	OK
+p(x) UNTIL q(x)	ERR	ERR
+(NOT p(x)) SINCE q(x)	x:int	OK
+c <- CNT x p(x)	c:int	OK
+c <- CNT x; y r(x,y)	c:int, y:int	OK
+m <- SUM x; y r(x,y)	m:int, y:int	OK
+m <- MIN x r(y,x)	m:int	OK
+m <- MAX x p(x)	m:int	OK
+m <- AVG x r(y,x)	m:float	OK
+c <- CNT x ONCE[0,5] p(x)	c:int	OK
+c <- CNT x (r(x,y) SINCE s(x,y))	c:int	OK
+p(x) IMPLIES q(x)	x:int	NOT
+p(x) EQUIV q(x)	x:int	NOT
+ALWAYS[0,5] p(x)	x:int	NOT
+PAST_ALWAYS[0,5] p(x)	x:int	NOT
+ONCE[0,10] (EXISTS y. r(x,y)) AND q(x)	x:int	OK
+p(x) AND x = 5 AND x < 10	x:int	OK
+EXISTS y, z. (s(x,y) AND s(y,z))	x:int	OK
+a(u) AND u = "hello"	u:string	OK
+b(x,u) AND u = "v"	x:int, u:string	OK
+r(x,y) AND y = x + 1	x:int, y:int	OK
+r(x,y) AND y = x * 2	x:int, y:int	OK
+r(x,y) AND y = x - 1	x:int, y:int	OK
+r(x,y) AND z = x + y AND s(z,x)	x:int, y:int, z:int	OK
+NOT (x = y) AND r(x,y)	x:int, y:int	NOT
+(p(x) AND NOT q(x))	x:int	OK
+p(x)	x:int	OK
+s(y,z)	y:int, z:int	OK
+q(x)	x:int	OK
+p(5)		OK
+ONCE[1,5] b(x,u)	x:int, u:string	OK
+q(y)	y:int	OK
+EVENTUALLY p(5)	ERR	ERR
+b(x,u)	x:int, u:string	OK
+NEXT(1,10) s(x,y)	x:int, y:int	OK
+q(y)	y:int	OK
+r(y,z)	y:int, z:int	OK
+(p(5) UNTIL(0,*) s(x,y))	ERR	ERR
+(r(x,5) AND NOT q(x))	x:int	OK
+s(x,y)	x:int, y:int	OK
+(p(x) OR q(x))	x:int	OK
+((p(5) AND x = x + 1) AND a(u))	x:int, u:string	NOT
+(EXISTS y. a(u))	u:string	OK
+q(x)	x:int	OK
+r(y,z)	y:int, z:int	OK
+(a(u) AND NOT q(x))	u:string, x:int	NOT
+(p(x) OR q(x))	x:int	OK
+res <- MAX x r(x,y)	res:int	OK
+q(y)	y:int	OK
+r(x,y)	x:int, y:int	OK
+PREV q(y)	y:int	OK
+PREV[2,*) (EXISTS y. s(y,z))	z:int	OK
+(r(x,y) AND NOT q(x))	x:int, y:int	OK
+((p(5) AND q(y)) AND b(x,u))	y:int, x:int, u:string	OK
+ONCE[2,10) s(x,y)	x:int, y:int	OK
+(res <- MAX x r(x,y) AND a(u))	res:int	OK
+q(x)	x:int	OK
+(r(x,y) OR p(x))	x:int, y:int	NOT
+b(x,u)	x:int, u:string	OK
+b(x,u)	x:int, u:string	OK
+(r(x,5) AND x = 5)	x:int	OK
+res <- MIN x r(x,y)	res:int	OK
+(r(x,5) UNTIL res <- SUM x r(x,y))	ERR	ERR
+(r(x,y) SINCE[1,*) (r(y,z) UNTIL p(5)))	ERR	ERR
+res <- MIN x r(x,y)	res:int	OK
+q(x)	x:int	OK
+(a(u) AND x = x + 1)	u:string, x:int	NOT
+ONCE[0,10) q(y)	y:int	OK
+(s(y,z) AND x = y)	y:int, z:int, x:int	OK
+(q(y) AND p(x))	y:int, x:int	OK
+(r(x,y) OR p(x))	x:int, y:int	NOT
+(b(x,u) AND NOT b(x,u))	x:int, u:string	OK
+r(x,5)	x:int	OK
+res <- MAX x r(x,y)	res:int	OK
+(r(y,z) AND b(x,u))	y:int, z:int, x:int, u:string	OK
+(b(x,u) AND x = y)	x:int, u:string, y:int	OK
+s(x,y)	x:int, y:int	OK
+(EXISTS y. (EXISTS x. (p(x) OR q(x))))		OK
+(q(y) SINCE (p(x) AND s(x,y)))	x:int, y:int	OK
+((q(x) AND b(x,u)) AND a(u))	x:int, u:string	OK
+res <- MAX x r(x,y)	res:int	OK
+(r(x,y) OR p(x))	x:int, y:int	NOT
+(q(x) OR r(x,y))	x:int, y:int	NOT
+(EXISTS y. (EXISTS x. a(u)))	u:string	OK
+(s(x,y) AND NOT q(x))	x:int, y:int	OK
+(q(x) AND q(y))	x:int, y:int	OK
+q(y)	y:int	OK
+q(x)	x:int	OK
+((res <- MAX x r(x,y) AND s(x,y)) AND s(y,z))	res:int, y:int, z:int	OK
+q(x)	x:int	OK
+b(x,u)	x:int, u:string	OK
+(p(5) AND r(y,z))	y:int, z:int	OK
+r(x,y)	x:int, y:int	OK
+r(y,z)	y:int, z:int	OK
+(q(y) AND s(y,z))	y:int, z:int	OK
+(r(x,y) OR r(x,y))	x:int, y:int	OK
+(q(y) AND s(y,z))	y:int, z:int	OK
+p(x)	x:int	OK
+(r(x,y) AND q(x))	x:int, y:int	OK
+(q(x) OR r(x,y))	x:int, y:int	NOT
+(q(y) AND x = 5)	y:int, x:int	OK
+res <- MIN x r(x,y)	res:int	OK
+r(y,z)	y:int, z:int	OK
+(PREV r(y,z) AND p(x))	y:int, z:int, x:int	OK
+b(x,u)	x:int, u:string	OK
+(NEXT(2,10] r(x,y) AND s(x,y))	x:int, y:int	OK
+(s(y,z) SINCE[0,5] (EXISTS y. q(y)))	y:int, z:int	NOT
+s(y,z)	y:int, z:int	OK
+(a(u) SINCE p(x))	x:int, u:string	NOT
+s(x,y)	x:int, y:int	OK
+r(y,z)	y:int, z:int	OK
+p(x)	x:int	OK
+a(u)	u:string	OK
+((q(x) AND q(y)) AND s(y,z))	x:int, y:int, z:int	OK
+r(y,z)	y:int, z:int	OK
+((EXISTS x. (s(x,y) UNTIL(1,5] p(x))) AND b(x,u))	y:int, x:int, u:string	NOT
+(EXISTS x. (r(x,5) SINCE[2,*) p(x)))		OK
+res <- MAX x r(x,y)	res:int	OK
+EVENTUALLY[0,10] ((q(x) AND x = y) AND r(x,y))	x:int, y:int	OK
+r(x,5)	x:int	OK
+(a(u) AND NOT r(x,5))	u:string, x:int	NOT
+EVENTUALLY r(y,z)	ERR	ERR
+((r(x,y) OR p(x)) AND r(x,y))	x:int, y:int	NOT
+b(x,u)	x:int, u:string	OK
+(p(x) OR r(x,y))	x:int, y:int	NOT
+q(x)	x:int	OK
+a(u)	u:string	OK
+res <- MAX x r(x,y)	res:int	OK
+r(x,y)	x:int, y:int	OK
+(b(x,u) AND r(y,z))	x:int, u:string, y:int, z:int	OK
+r(x,5)	x:int	OK
+(a(u) SINCE[1,10] a(u))	u:string	OK
+(s(x,y) UNTIL s(x,y))	ERR	ERR
+s(x,y)	x:int, y:int	OK
+r(x,y)	x:int, y:int	OK
+(s(x,y) AND x = 5)	x:int, y:int	OK
+p(5)		OK
+s(y,z)	y:int, z:int	OK
+(p(x) AND x = x + 1)	x:int	OK
+((s(x,y) AND NOT r(x,y)) AND s(x,y))	x:int, y:int	OK
+(EXISTS y. res <- AVG x r(x,y))	res:float	OK
+((p(x) OR r(x,y)) AND r(y,z))	x:int, y:int, z:int	NOT
+b(x,u)	x:int, u:string	OK
+s(y,z)	y:int, z:int	OK
+r(y,z)	y:int, z:int	OK
+(ONCE r(x,y) AND b(x,u))	x:int, y:int, u:string	OK
+(q(x) OR q(x))	x:int	OK
+r(x,y)	x:int, y:int	OK
+s(x,y)	x:int, y:int	OK
+s(x,y)	x:int, y:int	OK
+(s(y,z) AND s(y,z))	y:int, z:int	OK
+(p(x) AND a(u))	x:int, u:string	OK
+(r(x,5) AND NOT b(x,u))	x:int, u:string	NOT
+r(x,y)	x:int, y:int	OK
+a(u)	u:string	OK
+(EXISTS x. s(y,z))	y:int, z:int	OK
+(p(x) OR q(x))	x:int	OK
+(q(y) AND q(y))	y:int	OK
+(q(x) UNTIL[0,5] p(5))	x:int	NOT
+(q(y) AND x = x + 1)	y:int, x:int	NOT
+(q(x) AND NOT q(x))	x:int	OK
+p(5)		OK
+r(x,y)	x:int, y:int	OK
+r(y,z)	y:int, z:int	OK
+s(x,y)	x:int, y:int	OK
+(s(y,z) AND r(x,5))	y:int, z:int, x:int	OK
+r(x,y)	x:int, y:int	OK
+ONCE res <- SUM x r(x,y)	res:int	OK
+s(x,y)	x:int, y:int	OK
+s(y,z)	y:int, z:int	OK
+r(y,z)	y:int, z:int	OK
+r(x,y)	x:int, y:int	OK
+((r(y,z) AND x = 5) AND p(5))	y:int, z:int, x:int	OK
+(EXISTS y. EVENTUALLY[0,5] (s(y,z) SINCE[2,10] (q(y) AND x = x + 1)))	x:int, z:int	NOT
+r(x,5)	x:int	OK
+res <- MAX x r(x,y)	res:int	OK
+q(x)	x:int	OK
+s(y,z)	y:int, z:int	OK
+(s(x,y) UNTIL[1,10] a(u))	u:string, x:int, y:int	NOT
+a(u)	u:string	OK
+a(u)	u:string	OK
+(r(x,5) AND s(y,z))	x:int, y:int, z:int	OK
+a(u)	u:string	OK
+(r(x,y) AND q(x))	x:int, y:int	OK
+s(x,y)	x:int, y:int	OK
+s(x,y)	x:int, y:int	OK
+p(5)		OK
+r(x,y)	x:int, y:int	OK
+res <- MAX x r(x,y)	res:int	OK
+(EXISTS x. ((p(5) SINCE s(x,y)) AND a(u)))	y:int, u:string	OK
+EVENTUALLY s(y,z)	ERR	ERR
+(r(x,y) OR q(x))	x:int, y:int	NOT
+(EXISTS x. q(x))		OK
+a(u)	u:string	OK
+q(y)	y:int	OK
+(EXISTS x. (EXISTS x. (r(y,z) AND x = x + 1)))	y:int, z:int	NOT
+r(y,z)	y:int, z:int	OK
+(r(y,z) AND p(5))	y:int, z:int	OK
+s(y,z)	y:int, z:int	OK
+(p(x) OR r(x,y))	x:int, y:int	NOT
+res <- CNT x r(x,y)	res:int	OK
+(EXISTS y. s(x,y))	x:int	OK
+(p(x) AND r(x,y))	x:int, y:int	OK
+(q(y) AND NOT a(u))	y:int, u:string	NOT
+ONCE EVENTUALLY p(x)	ERR	ERR
+(res <- CNT x r(x,y) AND s(x,y))	res:int	OK
+(r(x,y) AND p(x))	x:int, y:int	OK
+(s(y,z) AND r(x,5))	y:int, z:int, x:int	OK
+(r(y,z) AND s(y,z))	y:int, z:int	OK
+(p(x) AND NOT r(y,z))	x:int, y:int, z:int	NOT
+((EXISTS x. s(y,z)) AND r(x,y))	y:int, z:int, x:int	OK
+(q(x) AND q(x))	x:int	OK
+(q(y) AND NOT q(y))	y:int	OK
+q(y)	y:int	OK
+p(5)		OK
+(q(y) AND b(x,u))	y:int, x:int, u:string	OK
+((EXISTS x. r(y,z)) AND q(y))	y:int, z:int	OK
+(p(x) OR r(x,y))	x:int, y:int	NOT
+p(5)		OK
+(EXISTS y. (a(u) AND q(y)))	u:string	OK
+b(x,u)	x:int, u:string	OK
+q(x)	x:int	OK
+r(x,y)	x:int, y:int	OK
+(EXISTS x. r(x,5))		OK
+p(5)		OK
+PREV[1,*) NEXT[0,5) (p(5) AND NOT a(u))	u:string	NOT
+(q(x) AND NOT q(y))	x:int, y:int	NOT
+((p(x) OR p(x)) AND r(x,5))	x:int	OK
+s(x,y)	x:int, y:int	OK
+b(x,u)	x:int, u:string	OK
+(q(x) SINCE[2,*) a(u))	u:string, x:int	NOT
+res <- SUM x r(x,y)	res:int	OK
+s(x,y)	x:int, y:int	OK
+p(5)		OK
+(q(x) OR r(x,y))	x:int, y:int	NOT
+r(y,z)	y:int, z:int	OK
+p(x)	x:int	OK
+q(y)	y:int	OK
+(EXISTS x. (b(x,u) AND x = 5))	u:string	OK
+(r(x,y) OR r(x,y))	x:int, y:int	OK
+b(x,u)	x:int, u:string	OK
+(s(y,z) AND NOT s(x,y))	y:int, z:int, x:int	NOT
+q(x)	x:int	OK
+p(5)		OK
+b(x,u)	x:int, u:string	OK
+p(5)		OK
+(q(y) SINCE (s(x,y) AND NOT p(x)))	x:int, y:int	OK
+ONCE s(x,y)	x:int, y:int	OK
+s(x,y)	x:int, y:int	OK
+(q(y) AND x = 5)	y:int, x:int	OK
+(p(x) OR p(x))	x:int	OK
+(p(x) OR r(x,y))	x:int, y:int	NOT
+(r(y,z) UNTIL(0,*) NEXT p(x))	ERR	ERR
+p(x)	x:int	OK
+q(y)	y:int	OK
+(p(5) AND b(x,u))	x:int, u:string	OK
+r(x,y)	x:int, y:int	OK
+(r(y,z) AND r(x,5))	y:int, z:int, x:int	OK
+(b(x,u) UNTIL s(y,z))	ERR	ERR
+r(x,5)	x:int	OK
+q(x)	x:int	OK
+p(x)	x:int	OK
+r(y,z)	y:int, z:int	OK
+b(x,u)	x:int, u:string	OK
+res <- MIN x r(x,y)	res:int	OK
+res <- SUM x r(x,y)	res:int	OK
+(r(y,z) AND r(x,y))	y:int, z:int, x:int	OK
+(r(x,y) UNTIL[1,*) r(x,5))	ERR	ERR
+(p(x) OR p(x))	x:int	OK
+((p(5) UNTIL[2,5] q(x)) AND p(5))	x:int	OK
+q(y)	y:int	OK
+q(y)	y:int	OK
+(p(5) SINCE[0,*) s(y,z))	y:int, z:int	OK
+r(x,y)	x:int, y:int	OK
+r(x,5)	x:int	OK
+PREV[0,5) s(x,y)	x:int, y:int	OK
+(r(y,z) AND p(x))	y:int, z:int, x:int	OK
+(r(y,z) UNTIL[0,10) ((p(5) AND r(x,y)) AND q(x)))	x:int, y:int, z:int	NOT
+p(x)	x:int	OK
+p(x)	x:int	OK
+q(x)	x:int	OK
+(EXISTS y. res <- AVG x r(x,y))	res:float	OK
+(res <- SUM x r(x,y) AND a(u))	res:int	OK
+r(x,5)	x:int	OK
+res <- AVG x r(x,y)	res:float	OK
+(s(y,z) AND NOT s(y,z))	y:int, z:int	OK
+PREV r(y,z)	y:int, z:int	OK
+(q(x) OR r(x,y))	x:int, y:int	NOT
+((s(x,y) SINCE(2,5) q(y)) AND a(u))	y:int, x:int, u:string	NOT
+(r(x,y) AND x = 5)	x:int, y:int	OK
+(EXISTS x. (p(5) AND x = 5))		OK
+(q(y) UNTIL (q(x) AND x = 5))	ERR	ERR
+q(y)	y:int	OK
+(r(y,z) UNTIL (r(x,y) AND s(y,z)))	ERR	ERR
+s(y,z)	y:int, z:int	OK
+(r(x,y) OR q(x))	x:int, y:int	NOT
+r(y,z)	y:int, z:int	OK
+r(x,y)	x:int, y:int	OK
+NEXT[2,*) NEXT[1,*) ((r(y,z) SINCE[1,10) b(x,u)) AND r(x,5))	x:int, u:string, y:int, z:int	NOT
+(p(x) AND x = y)	x:int, y:int	OK
+(r(x,y) AND q(y))	x:int, y:int	OK
+((r(x,y) OR q(x)) AND b(x,u))	x:int, y:int, u:string	NOT
+(EXISTS y. s(y,z))	z:int	OK
+r(x,5)	x:int	OK
+q(x)	x:int	OK
+(s(y,z) AND x = y)	y:int, z:int, x:int	OK
+s(y,z)	y:int, z:int	OK
+PREV s(y,z)	y:int, z:int	OK
+res <- MAX x r(x,y)	res:int	OK
+q(x)	x:int	OK
+EVENTUALLY(0,10) (a(u) SINCE r(x,y))	x:int, y:int, u:string	NOT
+(r(x,5) UNTIL r(y,z))	ERR	ERR
+r(y,z)	y:int, z:int	OK
+(r(x,5) AND NOT q(x))	x:int	OK
+r(y,z)	y:int, z:int	OK
+p(5)		OK
+(ONCE(0,5) EVENTUALLY a(u) AND s(x,y))	ERR	ERR
+s(y,z)	y:int, z:int	OK
+(r(x,5) SINCE(2,*) r(x,y))	x:int, y:int	OK
+(q(x) AND NOT b(x,u))	x:int, u:string	NOT
+r(x,y)	x:int, y:int	OK
+NEXT(0,*) q(y)	y:int	OK
+s(x,y)	x:int, y:int	OK
+(q(x) OR q(x))	x:int	OK
+res <- CNT x r(x,y)	res:int	OK
+ONCE s(x,y)	x:int, y:int	OK
+(p(x) OR p(x))	x:int	OK
+PREV (b(x,u) AND x = x + 1)	x:int, u:string	OK
+s(x,y)	x:int, y:int	OK
+p(x)	x:int	OK
+a(u)	u:string	OK
+r(y,z)	y:int, z:int	OK
+ONCE r(y,z)	y:int, z:int	OK
+ONCE (p(5) AND NOT p(x))	x:int	NOT
+p(x)	x:int	OK
+a(u)	u:string	OK
+res <- AVG x r(x,y)	res:float	OK
+ONCE (p(x) OR p(x))	x:int	OK
+(q(x) AND NOT r(x,5))	x:int	OK
+q(y)	y:int	OK
+(r(y,z) AND x = 5)	y:int, z:int, x:int	OK
+p(x)	x:int	OK
+ONCE[2,5) res <- MAX x r(x,y)	res:int	OK
+s(y,z)	y:int, z:int	OK
+(q(x) AND NOT q(x))	x:int	OK
+q(y)	y:int	OK
+(r(x,5) AND q(x))	x:int	OK
+q(x)	x:int	OK
+(p(5) AND x = 5)	x:int	OK
+(q(y) AND q(x))	y:int, x:int	OK
+(r(x,5) UNTIL[1,5] r(x,5))	x:int	OK
+r(y,z)	y:int, z:int	OK
+(EXISTS x. p(5))		OK
+((((q(x) OR q(x)) AND p(5)) AND s(x,y)) AND r(y,z))	x:int, y:int, z:int	OK
+r(x,5)	x:int	OK
+(q(y) SINCE(1,*) (s(y,z) AND p(5)))	y:int, z:int	OK
+(p(x) AND x = y)	x:int, y:int	OK
+q(y)	y:int	OK
+q(y)	y:int	OK
+b(x,u)	x:int, u:string	OK
+q(x)	x:int	OK
+(res <- SUM x r(x,y) AND r(y,z))	res:int	OK
+(p(x) OR q(x))	x:int	OK
+(p(x) OR r(x,y))	x:int, y:int	NOT
+((EXISTS y. EVENTUALLY q(x)) AND q(y))	ERR	ERR
+p(5)		OK
+(p(x) OR p(x))	x:int	OK
+(p(x) OR q(x))	x:int	OK
+((b(x,u) AND x = x + 1) AND p(x))	x:int, u:string	OK
+p(5)		OK
+((q(x) AND x = y) AND p(5))	x:int, y:int	OK
+p(x)	x:int	OK
+q(y)	y:int	OK
+p(x)	x:int	OK
+(EXISTS y. a(u))	u:string	OK
+ONCE(0,10] r(x,5)	x:int	OK
+NEXT q(y)	y:int	OK
+res <- SUM x r(x,y)	res:int	OK
+r(y,z)	y:int, z:int	OK
+b(x,u)	x:int, u:string	OK
+(b(x,u) AND r(x,5))	x:int, u:string	OK
+q(y)	y:int	OK
+res <- MIN x r(x,y)	res:int	OK
+(r(y,z) AND s(y,z))	y:int, z:int	OK
+s(y,z)	y:int, z:int	OK
+(EXISTS x. res <- CNT x r(x,y))	res:int	OK
+((EXISTS x. a(u)) AND q(x))	u:string, x:int	OK
+NEXT(1,5] (p(x) AND q(y))	x:int, y:int	OK
+((s(y,z) AND x = 5) AND q(y))	y:int, z:int, x:int	OK
+r(y,z)	y:int, z:int	OK
+(q(x) AND x = y)	x:int, y:int	OK
+((EVENTUALLY(1,5] (r(y,z) AND NOT r(x,y)) AND r(x,y)) AND q(x))	y:int, z:int, x:int	NOT
+q(y)	y:int	OK
+res <- SUM x r(x,y)	res:int	OK
+(r(x,y) OR p(x))	x:int, y:int	NOT
+b(x,u)	x:int, u:string	OK
+s(y,z)	y:int, z:int	OK
+(p(5) AND q(y))	y:int	OK
+(p(x) OR r(x,y))	x:int, y:int	NOT
+q(x)	x:int	OK
+(q(y) UNTIL p(5))	ERR	ERR
+(b(x,u) AND s(y,z))	x:int, u:string, y:int, z:int	OK
+(r(y,z) AND x = x + 1)	y:int, z:int, x:int	NOT
+s(y,z)	y:int, z:int	OK
+r(x,5)	x:int	OK
+p(5)		OK
+s(x,y)	x:int, y:int	OK
+a(u)	u:string	OK
+r(x,y)	x:int, y:int	OK
+(EXISTS x. q(x))		OK
+((q(x) AND r(x,y)) AND p(5))	x:int, y:int	OK
+r(y,z)	y:int, z:int	OK
+res <- CNT x r(x,y)	res:int	OK
+(p(x) UNTIL(2,*) b(x,u))	ERR	ERR
+((r(y,z) SINCE a(u)) AND p(5))	u:string, y:int, z:int	NOT
+q(x)	x:int	OK
+(p(x) OR p(x))	x:int	OK
+(q(x) OR p(x))	x:int	OK
+(s(y,z) AND NOT p(5))	y:int, z:int	OK
+p(x)	x:int	OK
+r(x,y)	x:int, y:int	OK
+(EXISTS y. (EXISTS x. q(y)))		OK
+s(y,z)	y:int, z:int	OK
+b(x,u)	x:int, u:string	OK
+s(y,z)	y:int, z:int	OK
