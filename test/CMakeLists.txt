@@ -1,19 +1,22 @@
-# Differential / behavioral tests, driven by the shell harnesses.
+# Behavioral / differential tests, driven by the shell harnesses. Every oracle
+# output (VeriMon verdicts, MonPoly typing/monitorability verdicts, parser ASTs)
+# is committed as a fixture, so nothing here runs monpoly or the parser oracle at
+# test time -- fixtures are (re)generated offline by each suite's regen.sh.
 #
 #   ctest --preset conan-release             # everything (docker tests self-provision)
 #   ctest --preset conan-release -L fast     # native-only: parser_diff + pipeline_diff
 #   ctest --preset conan-release -L docker   # behavioral + monpoly_suite (needs docker)
 #
-# Each harness exits 77 when a required external dependency (monpoly, the parser
-# oracle, docker, the monpoly-develop corpus, python3) is missing, which ctest
-# reports as "Skipped" rather than "Failed" (SKIP_RETURN_CODE 77 below).
+# Each harness exits 77 -- reported as "Skipped", not "Failed" (SKIP_RETURN_CODE
+# 77 below) -- when a runtime prerequisite is missing: docker (the bench
+# container) for the docker suites, or python3.
 set(TD "${CMAKE_CURRENT_SOURCE_DIR}")
 
-# ---- fast (native) : need only a built tool + monpoly / the parser oracle ----
+# ---- fast (native) : replay committed fixtures against a freshly built tool --
 add_test(NAME parser_diff
-         COMMAND bash "${TD}/parser_diff/run_diff.sh" "$<TARGET_FILE:parser_dump>" 800)
+         COMMAND bash "${TD}/parser_diff/run_diff.sh" "$<TARGET_FILE:parser_dump>")
 add_test(NAME pipeline_diff
-         COMMAND bash "${TD}/pipeline_diff/run_check_diff.sh" "$<TARGET_FILE:staticmon-headers>" 500)
+         COMMAND bash "${TD}/pipeline_diff/run_check_diff.sh" "$<TARGET_FILE:staticmon-headers>")
 set_tests_properties(parser_diff pipeline_diff
                      PROPERTIES LABELS fast SKIP_RETURN_CODE 77)
 
