@@ -97,7 +97,9 @@ runMonitorBenchmark disqRef builder bench = do
   -- The formula text is the disqualification key: benchmarks that differ only by
   -- log size share it, so a timeout on the small one skips the larger ones.
   fkey <- liftIO (T.strip <$> T.readFile fo_f)
-  let mons = filter (`supportsBenchmark` bench) monitors
+  sel <- RD.asks (bf_monitors . f_nes_flags)
+  let selected m = null sel || monitorName m `elem` sel
+      mons = filter (\m -> selected m && supportsBenchmark m bench) monitors
       pairs = liftA2 (,) mons [0 .. reps - 1]
       runOne b (m, i) = do
         let mname = monitorName m

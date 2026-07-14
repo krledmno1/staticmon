@@ -17,7 +17,8 @@ data NestedFlags
       { bf_reps :: Int,
         bf_out :: FilePath,
         bf_config :: FilePath,
-        bf_timeout :: Int -- per-run timeout in seconds (0 = none)
+        bf_timeout :: Int, -- per-run timeout in seconds (0 = none)
+        bf_monitors :: [T.Text] -- restrict to these monitor names ([] = all)
       }
   | RandomTestFlags
       { rt_ub :: Int64,
@@ -109,6 +110,14 @@ benchFlagsParser =
             <> value 30
             <> showDefault
             <> help "Per-run timeout; a monitor that exceeds it is disqualified from larger logs of the same formula (0 = no timeout)"
+        )
+      <*> option
+        (parseMonitorList <$> str)
+        ( long "monitors"
+            <> short 'm'
+            <> metavar "NAME,NAME,..."
+            <> value []
+            <> help "Restrict the comparison to these monitors (default: all)"
         )
 
 testFlagsParser :: Parser NestedFlags
@@ -225,3 +234,7 @@ parseIntervals :: String -> Maybe [Interval]
 parseIntervals s =
   let l = T.split (== ',') $ T.pack s
    in traverse parseInterval l
+
+parseMonitorList :: String -> [T.Text]
+parseMonitorList =
+  filter (not . T.null) . map T.strip . T.splitOn "," . T.pack
