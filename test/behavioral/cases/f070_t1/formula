@@ -1,0 +1,1 @@
+(EXISTS x. EVENTUALLY[1,2] r(y,z))

@@ -1,0 +1,1 @@
+EXISTS y. (r(x,y) AND q(y))

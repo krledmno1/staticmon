@@ -1,0 +1,8 @@
+@10 (time point 5): (1,"cc")
+@14 (time point 8): (2,"bb")
+@21 (time point 16): (2,"bb")
+@24 (time point 17): (4,"aa")
+@29 (time point 20): (2,"bb") (3,"bb") (3,"cc")
+@36 (time point 25): (3,"bb")
+@45 (time point 33): (2,"bb")
+@52 (time point 38): (2,"aa") (2,"cc") (3,"aa")

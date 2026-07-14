@@ -1,91 +1,10 @@
 #!/usr/bin/env bash
-# Behavioral end-to-end oracle: staticmon (compiled per formula) vs VeriMon
-# (monpoly -verified) on small random traces.
+# Replay the stored behavioral cases (test/behavioral/cases) against staticmon --
+# a frozen set of generated (sig, formula, trace) triples with VeriMon's verdict
+# stream stored. No monpoly at runtime; only the bench container (for
+# compilation) + python3. The fixtures are (re)generated offline by regen.sh.
 #
-# Pipeline per formula: staticmon-headers generates headers -> a per-formula
-# monitor is compiled inside a warm native container (staticmon-bench) -> run
-# on a trace; monpoly -verified runs the same formula+trace on the host; the
-# verdict streams are compared semantically.
-#
-# Optimizations: binaries are cached by formula hash (unique formulas compiled
-# once, persisted across runs in CACHE); cache hits skip compilation entirely;
-# conan deps + a warm build tree live in the prebuilt image; traces are capped
-# at <=100 timepoints (VeriMon is slow).
-#
-# Usage: run_behavioral.sh <staticmon-headers> [n_random] [seed] [traces_per_formula]
-# Requires: docker image staticmon-bench + running container `smbench`; native
-# monpoly on PATH via $MONPOLY.
-set -uo pipefail
-cd "$(dirname "$0")"
-SC=${1:?path to staticmon-headers}
-N=${2:-40}
-SEED=${3:-11}
-TRACES=${4:-3}
-NTP=${5:-40}
-MP=${MONPOLY:-$(command -v monpoly 2>/dev/null || ls "$HOME"/.opam/*/bin/monpoly 2>/dev/null | head -1)}
-CTR=${CONTAINER:-smbench}
-CACHE=${CACHE:-$HOME/.cache/staticmon-bench-bin}
-# cwd is already this script's dir (test/behavioral) from the cd above.
-IMPL=${IMPL:-"$(cd ../../scripts && pwd)/staticmon-impl"}
-mkdir -p "$CACHE"
-WORK=$(mktemp -d); trap 'rm -rf "$WORK"' EXIT
-
-command -v python3 >/dev/null 2>&1 || { echo "python3 not found; skipping" >&2; exit 77; }
-{ [ -n "$MP" ] && [ -x "$MP" ]; } || { echo "monpoly not found (set \$MONPOLY); skipping" >&2; exit 77; }
-docker exec "$CTR" true 2>/dev/null || { echo "container $CTR not running; skipping" >&2; exit 77; }
-
-SIG=$(python3 gen_bench.py "$N" "$SEED" 2>&1 >"$WORK/formulas.txt")
-SIG=${SIG#SIG }
-echo "$SIG" > "$WORK/s.sig"
-
-INDIR=/opt/staticmon/src/staticmon/input_formula
-total=0 skipped=0 compiled=0 cache_hits=0 match=0 mism=0
-
-while IFS= read -r formula; do
-  [ -z "$formula" ] && continue
-  total=$((total+1))
-  printf '%s' "$formula" > "$WORK/f.mfotl"
-
-  # VeriMon must accept the formula (it is the oracle); skip otherwise.
-  if ! $MP -verified -sig "$WORK/s.sig" -formula "$WORK/f.mfotl" -check \
-        2>&1 | grep -q "is monitorable"; then
-    skipped=$((skipped+1)); continue
-  fi
-
-  # staticmon-impl compile gates monitorability/typing and compiles the monitor
-  # with binary caching (namespaced by the container's build_id, keyed by header
-  # hash). exit 1 = rejected; exit 2 = build error.
-  if ! STATICMON_HEADERS="$SC" "$IMPL" compile -sig "$WORK/s.sig" -formula "$WORK/f.mfotl" \
-        -container "$CTR" -cache "$CACHE" -keep "$WORK/mon" \
-        >"$WORK/build.log" 2>&1; then
-    skipped=$((skipped+1)); continue
-  fi
-  if grep -q "cache hit" "$WORK/build.log"; then
-    cache_hits=$((cache_hits+1)); else compiled=$((compiled+1)); fi
-  binpath=/tmp/mon
-  docker cp "$WORK/mon" "$CTR:$binpath" >/dev/null
-
-  formula_bad=0
-  for ((t=0; t<TRACES; t++)); do
-    python3 gen_trace.py "$SIG" "$NTP" "$((SEED*100 + t))" > "$WORK/t.log"
-    docker cp "$WORK/t.log" "$CTR:/t.log" >/dev/null
-    docker exec "$CTR" "$binpath" --log /t.log > "$WORK/sm.out" 2>/dev/null
-    $MP -verified -sig "$WORK/s.sig" -formula "$WORK/f.mfotl" -log "$WORK/t.log" \
-      > "$WORK/mp.out" 2>/dev/null
-    if ! python3 compare_verdicts.py "$WORK/sm.out" "$WORK/mp.out" \
-          > "$WORK/diff.txt" 2>&1; then
-      formula_bad=1
-      if [ $mism -le 20 ]; then
-        echo "=== VERDICT MISMATCH: $formula (trace seed $((SEED*100+t))) ==="
-        cat "$WORK/diff.txt"
-      fi
-      break
-    fi
-  done
-  if [ $formula_bad -eq 1 ]; then mism=$((mism+1)); else match=$((match+1)); fi
-done < "$WORK/formulas.txt"
-
-echo
-echo "total=$total skipped=$skipped compiled=$compiled cache_hits=$cache_hits"
-echo "verdicts: match=$match mismatch=$mism"
-[ "$mism" -eq 0 ]
+# Usage: run_behavioral.sh <staticmon-headers>
+here="$(cd "$(dirname "$0")" && pwd)"
+exec bash "$here/../replay_cases.sh" "$here/cases" "${1:?path to staticmon-headers}" \
+  "${CACHE:-$HOME/.cache/staticmon-bench-bin}"

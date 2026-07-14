@@ -1,0 +1,1 @@
+LET P(x) = q(x) IN LET Z(x) = P(x) AND p(x) IN Z(x)

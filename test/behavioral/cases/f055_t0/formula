@@ -1,0 +1,1 @@
+LETPAST L(x) = p(x) OR (PREV L(x) AND q(x)) IN L(x)

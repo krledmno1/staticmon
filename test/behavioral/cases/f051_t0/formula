@@ -1,0 +1,1 @@
+LET T(x,y) = r(x,y) IN ONCE[0,3] T(x,y)

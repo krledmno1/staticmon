@@ -1,0 +1,1 @@
+c <- CNT x; y (r(x,y) AND p(x))

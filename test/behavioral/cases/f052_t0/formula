@@ -1,0 +1,1 @@
+LET P(x) = q(x) IN P(x) OR (EXISTS y. r(x,y))

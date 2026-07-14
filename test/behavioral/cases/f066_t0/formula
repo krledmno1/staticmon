@@ -1,0 +1,1 @@
+(EXISTS x. (p(x) AND NOT q(x)))
