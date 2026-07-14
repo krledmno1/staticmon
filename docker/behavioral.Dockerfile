@@ -37,6 +37,13 @@ ARG CC=clang
 ARG CXX=clang++
 ARG CONAN_COMPILER=clang
 ARG CONAN_COMPILER_VERSION=14
+# Build config. Defaults = Debug/-O0 (fast per-formula compile, for the
+# behavioral oracle). Override for an OPTIMIZED runtime-benchmark image, e.g.
+# BUILD_TYPE=Release ENABLE_IPO=ON USE_JEMALLOC=ON EXTRA_CXXFLAGS='-mcpu=native'.
+ARG BUILD_TYPE=Debug
+ARG ENABLE_IPO=OFF
+ARG USE_JEMALLOC=OFF
+ARG EXTRA_CXXFLAGS=""
 
 RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install \
       --no-install-recommends -y \
@@ -67,12 +74,13 @@ RUN case "$(dpkg --print-architecture)" in \
     printf '%s\n' \
       '[settings]' 'os=Linux' "arch=$CONAN_ARCH" "compiler=${CONAN_COMPILER}" \
       'compiler.libcxx=libstdc++11' 'compiler.cppstd=20' "compiler.version=${CONAN_COMPILER_VERSION}" \
-      'build_type=Debug' \
+      "build_type=${BUILD_TYPE}" \
       > profile
 RUN conan install . --output-folder=builddir --build=missing -pr:h=profile -pr:b=profile && \
     cmake -G Ninja \
       -DCMAKE_TOOLCHAIN_FILE="$PWD/builddir/conan_toolchain.cmake" \
-      -DCMAKE_BUILD_TYPE=Debug -DENABLE_IPO=OFF -DUSE_JEMALLOC=OFF \
+      -DCMAKE_BUILD_TYPE=${BUILD_TYPE} -DENABLE_IPO=${ENABLE_IPO} -DUSE_JEMALLOC=${USE_JEMALLOC} \
+      -DCMAKE_CXX_FLAGS="${EXTRA_CXXFLAGS}" \
       -DENABLE_SOCK_INTF=OFF -DENABLE_FILE_INPUT=ON \
       -S . -B builddir
 
