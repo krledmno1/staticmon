@@ -1,13 +1,14 @@
-# staticmon
+# Staticmon
 
-Similar to [Cppmon](https://github.com/matthieugras/cppmon), but compiles an
-**optimized monitor for each formula**. A signature + MFOTL formula is
-preprocessed into two header files (`formula_in.h`, `formula_csts.h`) that
-describe the formula; these instantiate the C++ template monitor in
-`src/staticmon/`, producing a specialized monitor via template metaprogramming.
+
+Staticmon is an online monitor for Metric First-Order Temporal Logic (MFOTL) 
+formulas. It compiles an **optimized binary for each formula**. A signature + 
+MFOTL formula is preprocessed into two header (`.h`) files that describe the 
+formula; these instantiate the C++ template monitor, producing a specialized 
+monitor via template metaprogramming.
 
 The preprocessing (parse, type-check, monitorability check, codegen) is done by
-`staticmon-headers`, staticmon's own dependency-free MFOTL front-end — no OCaml
+`staticmon-headers`, Staticmon's own dependency-free MFOTL front-end — no OCaml
 or MonPoly install is needed to build or run a monitor.
 
 You drive everything through one command, **`staticmon`**, which behaves like a
