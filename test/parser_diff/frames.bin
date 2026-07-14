@@ -1,0 +1,1792 @@
+3
+P()4
+P(x)8
+P(x,y,z)4
+P(5)8
+P("str")6
+P(1.5)6
+P(x+1)4
+P(_)6
+P(_,_)5
+P(_x)8
+P(_x,_x)8
+P(x,_,y)4
+TRUE5
+FALSE5
+x = 55
+x < 56
+x <= 55
+x > 56
+x >= 518
+"a" SUBSTRING "ab"13
+x SUBSTRING y17
+x MATCHES r"a.*b"21
+x MATCHES y (a, _, 5)14
+x MATCHES y ()8
+NOT P(x)13
+P(x) AND Q(y)12
+P(x) OR Q(y)17
+P(x) IMPLIES Q(y)15
+P(x) EQUIV Q(y)14
+EXISTS x. P(x)19
+EXISTS x, y. S(x,y)14
+FORALL x. P(x)20
+FORALL x, y, z. P(x)9
+PREV P(x)9
+NEXT P(x)15
+EVENTUALLY P(x)14
+SOMETIMES P(x)9
+ONCE P(x)11
+ALWAYS P(x)16
+PAST_ALWAYS P(x)17
+HISTORICALLY P(x)13
+PREVIOUS P(x)15
+P(x) SINCE Q(y)15
+P(x) UNTIL Q(y)17
+P(x) TRIGGER Q(y)17
+P(x) RELEASE Q(y)23
+LET P(x) = Q(x) IN P(5)27
+LETPAST P(x) = Q(x) IN P(5)23
+FRZ P(x) = Q(x) IN P(5)23
+LET P(_) = Q(x) IN P(5)15
+c <- CNT x P(x)20
+s <- SUM x; y S(x,y)21
+m <- MED x; a, b P(x)17
+a <- AVG x P(x,y)16
+mx <- MAX x P(x)16
+mn <- MIN x P(x)15
+c <- CNT z P(x)18
+c <- CNT x; w P(x)7
+|> P(x)7
+<| P(x)12
+FORWARD P(x)13
+BACKWARD P(x)11
+MATCHF P(x)11
+MATCHP P(x)13
+EXISTS . P(x)11
+P(x) | Q(y)9
+a = b = c1
+x0
+22
+P(x) AND Q(y) AND R(z)21
+P(x) AND Q(y) OR R(z)26
+P(x) AND Q(y) IMPLIES R(z)24
+P(x) AND Q(y) EQUIV R(z)24
+P(x) AND Q(y) SINCE R(z)24
+P(x) AND Q(y) UNTIL R(z)26
+P(x) AND Q(y) TRIGGER R(z)26
+P(x) AND Q(y) RELEASE R(z)30
+P(x) AND Q(y) SINCE [0,5] R(z)31
+P(x) AND Q(y) UNTIL (2,10) R(z)21
+P(x) OR Q(y) AND R(z)20
+P(x) OR Q(y) OR R(z)25
+P(x) OR Q(y) IMPLIES R(z)23
+P(x) OR Q(y) EQUIV R(z)23
+P(x) OR Q(y) SINCE R(z)23
+P(x) OR Q(y) UNTIL R(z)25
+P(x) OR Q(y) TRIGGER R(z)25
+P(x) OR Q(y) RELEASE R(z)29
+P(x) OR Q(y) SINCE [0,5] R(z)30
+P(x) OR Q(y) UNTIL (2,10) R(z)26
+P(x) IMPLIES Q(y) AND R(z)25
+P(x) IMPLIES Q(y) OR R(z)30
+P(x) IMPLIES Q(y) IMPLIES R(z)28
+P(x) IMPLIES Q(y) EQUIV R(z)28
+P(x) IMPLIES Q(y) SINCE R(z)28
+P(x) IMPLIES Q(y) UNTIL R(z)30
+P(x) IMPLIES Q(y) TRIGGER R(z)30
+P(x) IMPLIES Q(y) RELEASE R(z)34
+P(x) IMPLIES Q(y) SINCE [0,5] R(z)35
+P(x) IMPLIES Q(y) UNTIL (2,10) R(z)24
+P(x) EQUIV Q(y) AND R(z)23
+P(x) EQUIV Q(y) OR R(z)28
+P(x) EQUIV Q(y) IMPLIES R(z)26
+P(x) EQUIV Q(y) EQUIV R(z)26
+P(x) EQUIV Q(y) SINCE R(z)26
+P(x) EQUIV Q(y) UNTIL R(z)28
+P(x) EQUIV Q(y) TRIGGER R(z)28
+P(x) EQUIV Q(y) RELEASE R(z)32
+P(x) EQUIV Q(y) SINCE [0,5] R(z)33
+P(x) EQUIV Q(y) UNTIL (2,10) R(z)24
+P(x) SINCE Q(y) AND R(z)23
+P(x) SINCE Q(y) OR R(z)28
+P(x) SINCE Q(y) IMPLIES R(z)26
+P(x) SINCE Q(y) EQUIV R(z)26
+P(x) SINCE Q(y) SINCE R(z)26
+P(x) SINCE Q(y) UNTIL R(z)28
+P(x) SINCE Q(y) TRIGGER R(z)28
+P(x) SINCE Q(y) RELEASE R(z)32
+P(x) SINCE Q(y) SINCE [0,5] R(z)33
+P(x) SINCE Q(y) UNTIL (2,10) R(z)24
+P(x) UNTIL Q(y) AND R(z)23
+P(x) UNTIL Q(y) OR R(z)28
+P(x) UNTIL Q(y) IMPLIES R(z)26
+P(x) UNTIL Q(y) EQUIV R(z)26
+P(x) UNTIL Q(y) SINCE R(z)26
+P(x) UNTIL Q(y) UNTIL R(z)28
+P(x) UNTIL Q(y) TRIGGER R(z)28
+P(x) UNTIL Q(y) RELEASE R(z)32
+P(x) UNTIL Q(y) SINCE [0,5] R(z)33
+P(x) UNTIL Q(y) UNTIL (2,10) R(z)26
+P(x) TRIGGER Q(y) AND R(z)25
+P(x) TRIGGER Q(y) OR R(z)30
+P(x) TRIGGER Q(y) IMPLIES R(z)28
+P(x) TRIGGER Q(y) EQUIV R(z)28
+P(x) TRIGGER Q(y) SINCE R(z)28
+P(x) TRIGGER Q(y) UNTIL R(z)30
+P(x) TRIGGER Q(y) TRIGGER R(z)30
+P(x) TRIGGER Q(y) RELEASE R(z)34
+P(x) TRIGGER Q(y) SINCE [0,5] R(z)35
+P(x) TRIGGER Q(y) UNTIL (2,10) R(z)26
+P(x) RELEASE Q(y) AND R(z)25
+P(x) RELEASE Q(y) OR R(z)30
+P(x) RELEASE Q(y) IMPLIES R(z)28
+P(x) RELEASE Q(y) EQUIV R(z)28
+P(x) RELEASE Q(y) SINCE R(z)28
+P(x) RELEASE Q(y) UNTIL R(z)30
+P(x) RELEASE Q(y) TRIGGER R(z)30
+P(x) RELEASE Q(y) RELEASE R(z)34
+P(x) RELEASE Q(y) SINCE [0,5] R(z)35
+P(x) RELEASE Q(y) UNTIL (2,10) R(z)30
+P(x) SINCE [0,5] Q(y) AND R(z)29
+P(x) SINCE [0,5] Q(y) OR R(z)34
+P(x) SINCE [0,5] Q(y) IMPLIES R(z)32
+P(x) SINCE [0,5] Q(y) EQUIV R(z)32
+P(x) SINCE [0,5] Q(y) SINCE R(z)32
+P(x) SINCE [0,5] Q(y) UNTIL R(z)34
+P(x) SINCE [0,5] Q(y) TRIGGER R(z)34
+P(x) SINCE [0,5] Q(y) RELEASE R(z)38
+P(x) SINCE [0,5] Q(y) SINCE [0,5] R(z)39
+P(x) SINCE [0,5] Q(y) UNTIL (2,10) R(z)31
+P(x) UNTIL (2,10) Q(y) AND R(z)30
+P(x) UNTIL (2,10) Q(y) OR R(z)35
+P(x) UNTIL (2,10) Q(y) IMPLIES R(z)33
+P(x) UNTIL (2,10) Q(y) EQUIV R(z)33
+P(x) UNTIL (2,10) Q(y) SINCE R(z)33
+P(x) UNTIL (2,10) Q(y) UNTIL R(z)35
+P(x) UNTIL (2,10) Q(y) TRIGGER R(z)35
+P(x) UNTIL (2,10) Q(y) RELEASE R(z)39
+P(x) UNTIL (2,10) Q(y) SINCE [0,5] R(z)40
+P(x) UNTIL (2,10) Q(y) UNTIL (2,10) R(z)17
+NOT P(x) AND Q(y)17
+P(x) AND NOT Q(y)16
+NOT P(x) OR Q(y)16
+P(x) OR NOT Q(y)21
+NOT P(x) IMPLIES Q(y)21
+P(x) IMPLIES NOT Q(y)19
+NOT P(x) SINCE Q(y)19
+P(x) SINCE NOT Q(y)25
+NOT P(x) UNTIL [0,3] Q(y)25
+P(x) UNTIL [0,3] NOT Q(y)23
+EXISTS x. P(x) AND Q(y)23
+P(x) AND EXISTS x. Q(y)22
+EXISTS x. P(x) OR Q(y)22
+P(x) OR EXISTS x. Q(y)27
+EXISTS x. P(x) IMPLIES Q(y)27
+P(x) IMPLIES EXISTS x. Q(y)25
+EXISTS x. P(x) SINCE Q(y)25
+P(x) SINCE EXISTS x. Q(y)31
+EXISTS x. P(x) UNTIL [0,3] Q(y)31
+P(x) UNTIL [0,3] EXISTS x. Q(y)23
+FORALL y. P(x) AND Q(y)23
+P(x) AND FORALL y. Q(y)22
+FORALL y. P(x) OR Q(y)22
+P(x) OR FORALL y. Q(y)27
+FORALL y. P(x) IMPLIES Q(y)27
+P(x) IMPLIES FORALL y. Q(y)25
+FORALL y. P(x) SINCE Q(y)25
+P(x) SINCE FORALL y. Q(y)31
+FORALL y. P(x) UNTIL [0,3] Q(y)31
+P(x) UNTIL [0,3] FORALL y. Q(y)18
+PREV P(x) AND Q(y)18
+P(x) AND PREV Q(y)17
+PREV P(x) OR Q(y)17
+P(x) OR PREV Q(y)22
+PREV P(x) IMPLIES Q(y)22
+P(x) IMPLIES PREV Q(y)20
+PREV P(x) SINCE Q(y)20
+P(x) SINCE PREV Q(y)26
+PREV P(x) UNTIL [0,3] Q(y)26
+P(x) UNTIL [0,3] PREV Q(y)18
+NEXT P(x) AND Q(y)18
+P(x) AND NEXT Q(y)17
+NEXT P(x) OR Q(y)17
+P(x) OR NEXT Q(y)22
+NEXT P(x) IMPLIES Q(y)22
+P(x) IMPLIES NEXT Q(y)20
+NEXT P(x) SINCE Q(y)20
+P(x) SINCE NEXT Q(y)26
+NEXT P(x) UNTIL [0,3] Q(y)26
+P(x) UNTIL [0,3] NEXT Q(y)24
+EVENTUALLY P(x) AND Q(y)24
+P(x) AND EVENTUALLY Q(y)23
+EVENTUALLY P(x) OR Q(y)23
+P(x) OR EVENTUALLY Q(y)28
+EVENTUALLY P(x) IMPLIES Q(y)28
+P(x) IMPLIES EVENTUALLY Q(y)26
+EVENTUALLY P(x) SINCE Q(y)26
+P(x) SINCE EVENTUALLY Q(y)32
+EVENTUALLY P(x) UNTIL [0,3] Q(y)32
+P(x) UNTIL [0,3] EVENTUALLY Q(y)18
+ONCE P(x) AND Q(y)18
+P(x) AND ONCE Q(y)17
+ONCE P(x) OR Q(y)17
+P(x) OR ONCE Q(y)22
+ONCE P(x) IMPLIES Q(y)22
+P(x) IMPLIES ONCE Q(y)20
+ONCE P(x) SINCE Q(y)20
+P(x) SINCE ONCE Q(y)26
+ONCE P(x) UNTIL [0,3] Q(y)26
+P(x) UNTIL [0,3] ONCE Q(y)20
+ALWAYS P(x) AND Q(y)20
+P(x) AND ALWAYS Q(y)19
+ALWAYS P(x) OR Q(y)19
+P(x) OR ALWAYS Q(y)24
+ALWAYS P(x) IMPLIES Q(y)24
+P(x) IMPLIES ALWAYS Q(y)22
+ALWAYS P(x) SINCE Q(y)22
+P(x) SINCE ALWAYS Q(y)28
+ALWAYS P(x) UNTIL [0,3] Q(y)28
+P(x) UNTIL [0,3] ALWAYS Q(y)25
+PAST_ALWAYS P(x) AND Q(y)25
+P(x) AND PAST_ALWAYS Q(y)24
+PAST_ALWAYS P(x) OR Q(y)24
+P(x) OR PAST_ALWAYS Q(y)29
+PAST_ALWAYS P(x) IMPLIES Q(y)29
+P(x) IMPLIES PAST_ALWAYS Q(y)27
+PAST_ALWAYS P(x) SINCE Q(y)27
+P(x) SINCE PAST_ALWAYS Q(y)33
+PAST_ALWAYS P(x) UNTIL [0,3] Q(y)33
+P(x) UNTIL [0,3] PAST_ALWAYS Q(y)24
+PREV [1,2] P(x) AND Q(y)24
+P(x) AND PREV [1,2] Q(y)23
+PREV [1,2] P(x) OR Q(y)23
+P(x) OR PREV [1,2] Q(y)28
+PREV [1,2] P(x) IMPLIES Q(y)28
+P(x) IMPLIES PREV [1,2] Q(y)26
+PREV [1,2] P(x) SINCE Q(y)26
+P(x) SINCE PREV [1,2] Q(y)32
+PREV [1,2] P(x) UNTIL [0,3] Q(y)32
+P(x) UNTIL [0,3] PREV [1,2] Q(y)24
+ONCE [0,*) P(x) AND Q(y)24
+P(x) AND ONCE [0,*) Q(y)23
+ONCE [0,*) P(x) OR Q(y)23
+P(x) OR ONCE [0,*) Q(y)28
+ONCE [0,*) P(x) IMPLIES Q(y)28
+P(x) IMPLIES ONCE [0,*) Q(y)26
+ONCE [0,*) P(x) SINCE Q(y)26
+P(x) SINCE ONCE [0,*) Q(y)32
+ONCE [0,*) P(x) UNTIL [0,3] Q(y)32
+P(x) UNTIL [0,3] ONCE [0,*) Q(y)30
+EVENTUALLY (0,7] P(x) AND Q(y)30
+P(x) AND EVENTUALLY (0,7] Q(y)29
+EVENTUALLY (0,7] P(x) OR Q(y)29
+P(x) OR EVENTUALLY (0,7] Q(y)34
+EVENTUALLY (0,7] P(x) IMPLIES Q(y)34
+P(x) IMPLIES EVENTUALLY (0,7] Q(y)32
+EVENTUALLY (0,7] P(x) SINCE Q(y)32
+P(x) SINCE EVENTUALLY (0,7] Q(y)38
+EVENTUALLY (0,7] P(x) UNTIL [0,3] Q(y)38
+P(x) UNTIL [0,3] EVENTUALLY (0,7] Q(y)12
+NOT NOT P(x)13
+NOT PREV P(x)18
+NOT EXISTS x. P(x)19
+NOT ONCE [1,2] P(x)18
+EXISTS x. NOT P(x)19
+EXISTS x. PREV P(x)24
+EXISTS x. EXISTS x. P(x)25
+EXISTS x. ONCE [1,2] P(x)18
+FORALL y. NOT P(x)19
+FORALL y. PREV P(x)24
+FORALL y. EXISTS x. P(x)25
+FORALL y. ONCE [1,2] P(x)13
+PREV NOT P(x)14
+PREV PREV P(x)19
+PREV EXISTS x. P(x)20
+PREV ONCE [1,2] P(x)13
+NEXT NOT P(x)14
+NEXT PREV P(x)19
+NEXT EXISTS x. P(x)20
+NEXT ONCE [1,2] P(x)19
+EVENTUALLY NOT P(x)20
+EVENTUALLY PREV P(x)25
+EVENTUALLY EXISTS x. P(x)26
+EVENTUALLY ONCE [1,2] P(x)13
+ONCE NOT P(x)14
+ONCE PREV P(x)19
+ONCE EXISTS x. P(x)20
+ONCE ONCE [1,2] P(x)15
+ALWAYS NOT P(x)16
+ALWAYS PREV P(x)21
+ALWAYS EXISTS x. P(x)22
+ALWAYS ONCE [1,2] P(x)20
+PAST_ALWAYS NOT P(x)21
+PAST_ALWAYS PREV P(x)26
+PAST_ALWAYS EXISTS x. P(x)27
+PAST_ALWAYS ONCE [1,2] P(x)19
+PREV [1,2] NOT P(x)20
+PREV [1,2] PREV P(x)25
+PREV [1,2] EXISTS x. P(x)26
+PREV [1,2] ONCE [1,2] P(x)19
+ONCE [0,*) NOT P(x)20
+ONCE [0,*) PREV P(x)25
+ONCE [0,*) EXISTS x. P(x)26
+ONCE [0,*) ONCE [1,2] P(x)25
+EVENTUALLY (0,7] NOT P(x)26
+EVENTUALLY (0,7] PREV P(x)31
+EVENTUALLY (0,7] EXISTS x. P(x)32
+EVENTUALLY (0,7] ONCE [1,2] P(x)23
+EXISTS x. P(x) AND Q(x)23
+FORALL x. P(x) AND Q(x)22
+EXISTS x. P(x) OR Q(x)22
+FORALL x. P(x) OR Q(x)27
+EXISTS x. P(x) IMPLIES Q(x)27
+FORALL x. P(x) IMPLIES Q(x)25
+EXISTS x. P(x) EQUIV Q(x)25
+FORALL x. P(x) EQUIV Q(x)25
+EXISTS x. P(x) SINCE Q(x)25
+FORALL x. P(x) SINCE Q(x)25
+EXISTS x. P(x) UNTIL Q(x)25
+FORALL x. P(x) UNTIL Q(x)27
+EXISTS x. P(x) TRIGGER Q(x)27
+FORALL x. P(x) TRIGGER Q(x)27
+EXISTS x. P(x) RELEASE Q(x)27
+FORALL x. P(x) RELEASE Q(x)31
+EXISTS x. P(x) SINCE [0,5] Q(x)31
+FORALL x. P(x) SINCE [0,5] Q(x)32
+EXISTS x. P(x) UNTIL (2,10) Q(x)32
+FORALL x. P(x) UNTIL (2,10) Q(x)15
+ONCE [0,0] P(x)15
+ONCE [0,1) P(x)15
+ONCE (0,1] P(x)15
+ONCE (0,1) P(x)15
+ONCE [0,*) P(x)15
+ONCE [0,*] P(x)15
+ONCE (1,*) P(x)15
+ONCE [5,3] P(x)17
+ONCE [2d,3d] P(x)17
+ONCE [1h,2h] P(x)18
+ONCE [30m,1h] P(x)18
+ONCE [59s,1m] P(x)16
+ONCE [2d,*) P(x)16
+ONCE [-1,5] P(x)17
+ONCE [-5,-1] P(x)15
+ONCE (0,0) P(x)38
+ONCE [999999999999999999999999,*) P(x)30
+ONCE [106751991167300d,*) P(x)33
+ONCE [4611686018427387903,*) P(x)17
+ONCE [5x,10] P(x)15
+ONCE [5,10 P(x)16
+ONCE [5 10] P(x)15
+ONCE [,10] P(x)14
+ONCE [5,] P(x)21
+P(x) SINCE [1,2] Q(y)21
+P(x) SINCE (1,2] Q(y)21
+P(x) UNTIL [0,0] Q(y)9
+x + y = z9
+x - y = z9
+x * y = z9
+x / y = z11
+x MOD y = z13
+x + y * z = w13
+x * y + z = w15
+(x + y) * z = w13
+x + y + z = w13
+x - y - z = w13
+x / y / z = w7
+- x = y11
+- x + y = z11
+x + - y = z13
+- (x + y) = z10
+f2i(x) = y10
+i2f(x) = y10
+s2i(x) = y10
+i2s(x) = y10
+f2s(x) = y10
+s2f(x) = y10
+r2s(x) = y10
+s2r(x) = y19
+DAY_OF_MONTH(x) = y12
+MONTH(x) = y11
+YEAR(x) = y18
+FORMAT_DATE(x) = y18
+f2i(x + y) * 2 = z15
+f2i(i2f(x)) = y7
+(x) = 59
+((x)) = 511
+(x) + 1 = y17
+((x + y)) * 2 = z6
+(P(x))8
+((P(x)))15
+(P(x) AND Q(y))7
+(x = 5)9
+((x = 5))16
+(x = 5) AND Q(y)5
+5 = 57
+1.5 = x6
+1. = x9
+"foo" = x10
+r"pat" = x6
+0 = -07
+007 = 79
+-007 = -733
+99999999999999999999999999999 = x34
+-99999999999999999999999999999 = x13
+1.5 + 2.5 = x27
+1.79769313486231571e308 = x23
+3.14159265358979312 = x7
+x-5 = y9
+x - 5 = y8
+x -5 = y10
+x - -5 = y7
+5-3 = x7
+a/b = c7
+a:b = c7
+a'b = c7
+ANDx(y)10
+TRUEfoo(y)7
+NOTP(x)6
+and(x)7
+true(x)8
+since(x)17
+P(x) AND(*c*)Q(y)17
+P(x)(*c*)AND Q(y)10
+(*c*) P(x)24
+P(x) # comment
+ AND Q(y)30
+P(x) (* multi
+line *) AND Q(y)20
+P(x) (* unterminated8
+P("a b")9
+P("a\"b")9
+P("a\\b")5
+P("")14
+P("tab\there")13
+P("nl\nhere")9
+123abc(x)6
+_x = 55
+_ = 55
+x = _5
+P(x,)5
+P(,x)9
+1.5.5 = x6
+.5 = x8
+▷ P(x)8
+◁ P(x)8
+P(x) AND8
+AND P(x)2
+()1
+(1
+)12
+|> P(x) Q(y)17
+|> P(x) Q(y) R(z)14
+|> P(x) + Q(y)19
+|> P(x) Q(y) + R(z)19
+|> P(x) + Q(y) R(z)8
+|> P(x)?13
+|> P(x)? Q(y)4
+|> .6
+|> . .11
+|> . P(x) .8
+|> P(x)*9
+|> P(x)?*15
+|> (P(x) Q(y))*5
+|> .*9
+|> (P(x))21
+|> (P(x) + Q(y)) R(z)11
+|> ((P(x)))18
+|> [0,5] P(x) Q(y)18
+<| [0,5] P(x) Q(y)15
+<| P(x)? . Q(y)16
+|> P(x) AND Q(y)13
+|> x = 5 Q(y)10
+|> (x) = 516
+|> NOT P(x) Q(y)17
+|> EXISTS x. P(x)12
+|> (|> P(x))17
+|> (<| P(x)) Q(y)18
+|> P(x) SINCE Q(y)16
+P(x) AND |> Q(y)11
+NOT |> P(x)13
+|> TRUE? Q(y)13
+|> TRUE FALSE2
+|>4
+|> +24
+c <- CNT x P(x) AND Q(y)26
+c <- CNT x P(x) SINCE Q(y)27
+c <- CNT x EXISTS y. S(x,y)25
+c <- CNT x; y, z P(x,y,z)29
+c <- CNT x; y P(x,y) AND Q(z)22
+c <- CNT x; y, z, P(x)17
+c <- CNT x; a = 534
+d <- SUM x; y c <- CNT x; y S(x,y)18
+c <- CNT x (x = 5)15
+x <- CNT x P(x)19
+NOT c <- CNT x P(x)23
+c <- CNT x P(x) OR Q(c)4
+TRUE79
+EXISTS w, x. EVENTUALLY (2m,10) |> TRUE UNTIL EXISTS z, x. ("t u" >= "t u" - x)9
+(2. >= 1)42
+NEXT [2m,5m] |> (30s,2d) (R(0, 0) + (.)*)*22
+R(0, 1.5) AND R(42, _)61
+ONCE [1,7) ("s") < "t u" TRIGGER [30s,2d) 0 = DAY_OF_MONTH(1)7
+Q(-0.5)75
+res <- MIN y EXISTS x, w. LET P(x) = EVENTUALLY [1h,2h) Z0() IN NOT P(-0.5)127
+LET Q(x) = <| (1d,7) . IN R(0, 0) UNTIL (30s,7) "s" >= -0.5 TRIGGER [1h,*) (PREV x * 42 <= "t u" * -3 SINCE S(z, YEAR(y), 1.5))87
+"t u" = - 1.5 AND NOT S(1, 1.5, x) EQUIV 1.5 SUBSTRING 2. RELEASE f2i(1) > (z) AND Z0()9
+(R(_, w))22
+NOT (42) < 1.5 / "t u"107
+LET P(x) = 0 > s2f(y) IMPLIES Q(0) IN FORALL x, y. Z0() RELEASE [1d,3) PREV [2m,10) EXISTS w, y. R(z, -0.5)79
+LET Q(x) = PREV (x + 2. < (-0.5)) IN res <- MIN w - y < -0.5 AND EXISTS z. TRUE20
+-3 * 1.5 = MONTH(-3)13
+(R(-3, -0.5))14
+s2r(w) <= -0.54
+P(z)12
+2. MOD 5 < 142
+LET Q(x) = Q("t u") IN "t u" SUBSTRING (z)14
+S(1.5, z, "s")14
+|> S(_, y, -3)29
+EXISTS z, y. NOT S(0, -3, 2.)12
+S(w, w, (1))49
+FORALL z, y. LET Q(x) = 2. > z MOD z IN 0 <= - 4231
+FALSE UNTIL z SUBSTRING YEAR(1)92
+<| [0,2d] Z0()? AND |> (5,2d) (S(5, "t u", -3)? TRUE?) AND P(-0.5) IMPLIES R(-0.5 * -0.5, 1)38
+FORALL x. (x) <= "s" * -3 RELEASE TRUE9
+-3 <= - 09
+(R(1, _))17
+EXISTS z. R(z, z)33
+1 MOD 5 = (1.5) AND -0.5 < y - -316
+(S(w, _, "t u"))181
+ONCE (2,5m) LET Q(x) = LET Q(x) = 1.5 / -0.5 SUBSTRING 0 IN Z0() IN res <- MAX x Q(y) SINCE (1d,10) <| [0,2d] P(-0.5) RELEASE [1d,3] EXISTS z. (y) = 0 * "s" IMPLIES "t u" < 0 * -0.522
+EXISTS z. Q(x) OR Z0()49
+NOT NEXT (30s,2h] NEXT (1h,7) (-3) SUBSTRING -0.59
+R(1.5, 0)14
+|> (2,10) Q(z)24
+R(5, y) UNTIL [1,3] TRUE10
+NEXT FALSE10
+s2i(x) = 587
+NOT z + w < 42 MOD -0.5 UNTIL EXISTS y. Z0() RELEASE (5,5m) NOT Q(1) SINCE [1h,3] FALSE7
+42 = -364
+TRUE OR res <- MED y P(0) OR ONCE <| S(x, 0, 0)? IMPLIES - x < 027
+EVENTUALLY x SUBSTRING (42)23
+x SUBSTRING 1.5 / "t u"22
+EXISTS y, z. (P(-0.5))84
+NOT LET P(x) = res <- MIN w res <- SUM x Q(2.) IN NOT Z0() TRIGGER [5,3) R(-3, (-3))16
+S(z, (-0.5), 42)5
+P(42)13
+S(1.5, y, -3)37
+LET Q(x) = P(w - 0) IN 1 + 1.5 > -0.54
+Z0()15
+<| [0,2h] Z0()?29
+ONCE [2m,7] <| [1h,*) R(_, _)41
+S("t u", 5, 1.5) TRIGGER (PREV R(42, -3))82
+FORALL x. NOT NOT EXISTS x, w. 1.5 SUBSTRING w IMPLIES R(_, -0.5) IMPLIES R(-3, _)70
+FORALL w. NOT 0 + 5 > y OR NOT S(1, _, "t u") SINCE [5,2h) NOT R(w, y)42
+S(1 - "s", ("t u"), x) RELEASE (1h,*] Q(5)52
+FORALL x. NOT EVENTUALLY (2m,10] y / x SUBSTRING "s"7
+- w > 054
+res <- MED x res <- SUM x 5 <= y TRIGGER y SUBSTRING 027
+LET Q(x) = R(1, 5) IN Q(2.)38
+ALWAYS [1h,*) EXISTS w, y. S(-3, z, y)25
+PAST_ALWAYS <| [5,*] TRUE5
+Q(42)59
+Q(w) TRIGGER (2,2h] TRUE SINCE (2,*) s2f(1.5) <= "t u" - 424
+Z0()54
+ALWAYS [1h,*) LET Q(x) = Z0() IN "t u" SUBSTRING - "s"9
+-0.5 < -316
+PAST_ALWAYS TRUE4
+Z0()20
+EXISTS y. (P("t u"))20
+(y) <= 42 UNTIL Z0()130
+0 + 42 <= YEAR(-0.5) UNTIL (30s,2d) (FORALL x. S(w, - -0.5, 2.)) OR res <- AVG z "s" >= s2i("t u") UNTIL [2,3] ONCE [5,5m] <| Z0()62
+LET Q(x) = 2. * z <= 2. / 1 IN 5 >= (5) RELEASE [1,7] NOT Z0()8
+P("t u")72
+res <- CNT x res <- CNT y |> R(-0.5 MOD 5, 42) RELEASE FALSE UNTIL P(2.)17
+FORALL w, y. TRUE40
+-0.5 - "t u" < 1 - 1.5 OR S(1.5, 1.5, 0)20
+R(y, "s") EQUIV Q(x)6
+(Z0())49
+EXISTS y. (ONCE Q(y) OR 0 - 5 SUBSTRING -0.5 + 1)20
+(EXISTS y, z. P(2.))8
+1.5 >= w4
+Q(5)4
+TRUE26
+FORALL x, y. "t u" <= (2.)23
+EXISTS x. Z0() OR P(2.)4
+TRUE114
+res <- MAX z PAST_ALWAYS S(42, 2., _) OR LET Q(x) = R(x + 5, -0.5) IN Q(1) IMPLIES P(1) RELEASE (1d,3) R("t u", z)19
+(res <- MAX y TRUE)13
+"s" = 1 * 1.535
+ALWAYS <| P(_)? + (R(-0.5, "t u"))*48
+(-3 SUBSTRING 5 IMPLIES Q(0) TRIGGER R(1.5, 42))17
+res <- MED w Z0()31
+NEXT NEXT "t u" > "t u" OR P(1)29
+(<| (2,3) ((.)*)* (P((-3)))*)25
+DAY_OF_MONTH(42) <= 5 + w16
+s2f(1.5) = w / y4
+TRUE17
+TRUE IMPLIES P(y)25
+(FALSE AND 5 >= s2i("s"))23
+|> (2,3) S(w, z, w * y)17
+FORALL x, z. TRUE48
+EXISTS y, x. w = 42 + y IMPLIES 2. <= 1.5 + -0.521
+EXISTS y. s2i(x) > 4216
+EXISTS x. P((5))17
+res <- CNT x Z0()59
+NEXT [5,3] |> (2,2h) R(2., 42)? + S(42, 1.5, 2.)? Q("t u")?105
+PREV TRUE RELEASE [1,2h) EXISTS z. R(y, 0) OR LET P(x) = R((w), -0.5) IN 2. >= "t u" * 5 SINCE (1,*) P(1)13
+|> Q(f2s(-3))30
+|> [1,*) ((Q(5)? + R(x, z))*)*13
+2. > -0.5 + x16
+-0.5 SUBSTRING x5
+FALSE30
+1.5 SUBSTRING DAY_OF_MONTH(2.)4
+Q(z)199
+LET P(x) = Q(0) SINCE [2,*) NOT EXISTS y. y - -0.5 = 5 AND LET Q(x) = Q((w)) TRIGGER [5,7] Z0() OR S("t u", -0.5, 1.5) IN TRUE IN PREV [1d,10] NOT LET Q(x) = LET P(x) = FALSE IN 1 < 5 IN i2s(1.5) < 123
+-0.5 SUBSTRING -0.5 / z12
+S(1.5, 0, z)156
+EVENTUALLY [1,2h) NOT EXISTS z. EVENTUALLY NOT DAY_OF_MONTH(0) < 42 * y TRIGGER [1,3] <| (P(w)? S(5, 0, "t u")?)* . S(2., 0, 1.5) + R(42, -0.5) . + (TRUE?)*37
+(w) < 2. IMPLIES 42 * 1 SUBSTRING (y)19
+FORALL w. -3 = -0.59
+R("s", x)20
+<| (0,*) (((Z0())))*4
+P(1)59
+res <- MED y 1 >= w EQUIV "s" >= (-3) UNTIL (1h,10] R(w, w)39
+res <- MAX x FALSE OR EXISTS y, z. Q(0)4
+Q(z)7
+<| Z0()180
+((EVENTUALLY [0,7) P(-3) SINCE y / -3 <= 2. / "s")) RELEASE [2,2h) Q(1) IMPLIES 2. / z > 0 TRIGGER (1h,5m) "s" - 5 > - 2. OR S(0, z, z) RELEASE R(5, 5) AND ONCE (EXISTS z. P(-0.5))5
+FALSE47
+(FORALL w, y. s2r(x) = (5) IMPLIES R(-3, -0.5))10
+NOT Q("s")18
+Z0() EQUIV Q(-0.5)20
+z < FORMAT_DATE("s")16
+NOT S(w, 1.5, 5)104
+LET P(x) = FORALL z. P(x) OR i2s(w) <= 1 MOD -3 UNTIL S("s", "s", i2s("s")) IMPLIES S(5, 0, 1.5) IN TRUE15
+42 + "t u" <= z6
+Q((w))65
+FORALL w. (|> R("s", -3)? TRUE?) AND (P(0)) EQUIV R(-0.5, r2s(1))73
+i2f(w) >= - 1 TRIGGER [30s,5m] |> (TRUE)* S("s", 1, 1.5) + . + Q(5)? Q(w)19
+S(s2i(w), -3, -0.5)4
+Z0()124
+NEXT (2m,7) -0.5 <= "t u" + 1.5 OR |> [2m,*) S(y, 42, 1.5)? EQUIV 42 >= 1.5 + "s" RELEASE (1h,3] -0.5 / 42 SUBSTRING 2. - -335
+LET Q(x) = Q(1.5) IN NOT R(42, "s")78
+NOT LET P(x) = P(i2f(-3)) IN FORALL z. R(z, 42 / 42) TRIGGER [30s,2h) NOT TRUE62
+NEXT (2,2h] ONCE [30s,7] PAST_ALWAYS [30s,3] (1.5) SUBSTRING 537
+|> [2,5m] (R("s", 5)? + R(x, (2.))?)*15
+EXISTS w. FALSE104
+EXISTS w, y. PAST_ALWAYS [2m,10] EVENTUALLY Z0() SINCE (1,3) NOT S(-0.5, 1.5, x) TRIGGER (30s,5m) Q(- 1)40
+|> ((.)*)* IMPLIES "t u" = "t u" - "t u"5
+FALSE4
+Q(1)18
+ONCE [1h,3] P(1.5)12
+Q("t u" * 1)46
+(FORALL z. res <- MED z s2f("t u") > s2r("s"))14
+NOT R(-0.5, 1)4
+Q(z)8
+R(42, 5)13
+x >= y * -0.528
+R(0, 0) SINCE 1.5 * z <= "s"7
+y = - 0149
+TRUE OR (TRUE OR "s" < 2. - y) SINCE [0,3] LET P(x) = LET P(x) = 5 >= 2. IN LET Q(x) = S(1.5, z, -0.5) IN S(0, 2., y) IN ONCE (0) > - 0 TRIGGER Q(-3)42
+res <- SUM x P(x) TRIGGER -0.5 MOD z >= -318
+(S(-0.5, y, - 2.))37
+res <- MIN y NOT R("t u", 2.) OR Q(1)49
+R(-3, 2. + -0.5) TRIGGER <| [0,3] R(5, _) + Z0()?17
+"t u" * 1.5 > 1.57
+(z) > 016
+PAST_ALWAYS Z0()40
+|> (1d,5m) TRUE EQUIV PREV (2m,10] Q(-3)16
+w MOD -3 > - "s"46
+res <- CNT w PREV PREV [30s,2d] y SUBSTRING -3110
+P(42) RELEASE P(w) RELEASE EVENTUALLY (1,10) (("s" MOD 1.5 > "t u") TRIGGER [1d,3) 2. <= x TRIGGER (2.) >= 2.)6
+(TRUE)63
+<| (1h,10] ((Z0())* + (Q(x)) R(y, "s")? S(1.5, 1.5, _) + Z0())*39
+P(DAY_OF_MONTH(0)) IMPLIES (2.) = w * x36
+res <- AVG y <| [1d,2d] (Z0()) . + .25
+z > f2i(1.5) RELEASE Z0()13
+R(1.5, "t u")22
+<| S("s", "t u", "s")?29
+NOT TRUE SINCE (0) >= 2. / 2.12
+f2s(-3) <= z14
+FORALL x. Z0()48
+LET Q(x) = Q(5) IMPLIES NEXT [1h,*) P(_) IN Z0()33
+res <- MIN y R(_, 1.5) EQUIV Z0()9
+R(0, 1.5)4
+P(y)93
+(S(_, z, - -3)) TRIGGER (5,5m] 2. <= 42 IMPLIES 0 >= 0 * y OR NEXT Q(y) TRIGGER -3 < 1 * -0.544
+-3 + 0 > 1 SINCE PAST_ALWAYS |> (30s,7] TRUE34
+EXISTS x. 2. = - 2. EQUIV NOT TRUE24
+NOT res <- AVG x 1 < (x)51
+NOT EXISTS z, x. res <- MIN y FORALL w. R(z - 0, w)27
+(0) <= w UNTIL (1d,5m] Z0()13
+"s" >= x / -34
+P(_)24
+ALWAYS [2m,*) 1.5 <= 1.538
+EXISTS w, z. NEXT (1,7] 5 / 1.5 >= "s"234
+(x > y) TRIGGER ALWAYS (1d,2h] x + -3 SUBSTRING "t u" SINCE [2,2h) Z0() UNTIL [1,10] EXISTS y, w. 42 >= 1 - 2. SINCE [2,2h] NOT Q(2.) RELEASE LET Q(x) = P(2.) TRIGGER (30s,3] TRUE AND FORALL x, z. TRUE IN FORALL x, w. 0 = - 42 OR Q(y)16
+FORALL z. w <= y10
+w / 1 <= x100
+(y + -0.5 < 2. TRIGGER [5,5m] |> (1h,5m] P(z / 1.5) SINCE [1h,2h] res <- MED x (s2r(1) < w * "t u"))19
+res <- AVG z Q(- 5)10
+|> R(5, y)18
+FORALL x. 2. >= 2.63
+res <- CNT w LET Q(x) = FORMAT_DATE(5) < z IN Q(FORMAT_DATE(x))13
+<| ((Z0()?)*)34
+ONCE (0,*] Q("s") AND 2. - 1.5 = z87
+FORALL y, z. res <- MIN y P(-0.5) AND R(y, x) OR NOT EVENTUALLY P(_) SINCE [2,2d) FALSE95
+ALWAYS (2,3] PAST_ALWAYS [1,10) ALWAYS P(-0.5) RELEASE (0,2h] EVENTUALLY [2m,2h) <| R(-0.5, 0)?63
+R(-3, -3 * 2.) IMPLIES EXISTS x. - "s" > 2. - "s" IMPLIES FALSE50
+EVENTUALLY |> [1,2h) . UNTIL [1,10) (<| (1h,5m) .)16
+PAST_ALWAYS TRUE19
+Q(- 1) OR z >= -0.544
+ONCE [30s,10] res <- MIN z Z0() EQUIV Q(1.5)14
+NOT s2i(y) = 141
+NOT FORALL z. (LET Q(x) = P(5) IN -3 = x)12
+("t u") >= 0100
+NOT |> (2,2d) Q("t u") SINCE (30s,2h] LET Q(x) = S(x, "t u", w) IN ONCE [1,3] z SUBSTRING -3 MOD 1.57
+(FALSE)21
+res <- SUM w Q("t u")49
+LET Q(x) = EXISTS y, z. S("s" / 1, 2., 5) IN TRUE28
+NOT PAST_ALWAYS [2m,2d) Q(0)4
+P(_)13
+"t u" > z + 011
+42 < i2s(5)14
+42 SUBSTRING y31
+FORALL x, z. res <- CNT y FALSE16
+EVENTUALLY Q(-3)19
+EXISTS x, z. Q("s")25
+EXISTS w, x. i2s(z) <= 2.22
+-0.5 SUBSTRING i2s(42)50
+NOT 42 = (x) TRIGGER (1,10] EXISTS w. - "t u" > 42152
+LET P(x) = PREV [5,7] (-3) < i2s("t u") IN P(1) TRIGGER [1h,2h] FALSE TRIGGER [30s,3) ONCE (1) SUBSTRING 2. OR FORALL x. NEXT [5,3) EXISTS x. P(i2s(2.))5
+FALSE42
+z + -3 < 1 + y UNTIL (res <- AVG x Q(1.5))56
+LET P(x) = Z0() IN w = (w) SINCE [2,*] FORALL x, w. Z0()13
+((P(2. / 5)))25
+EXISTS y. Z0() AND P(1.5)71
+(FORALL w. FALSE) IMPLIES FORALL x, y. res <- MIN y S(0, 42, 1.5 MOD z)14
+2. - -0.5 < 42101
+res <- SUM y res <- MED x res <- CNT x Q(-3) TRIGGER [1,*] EXISTS z, w. EXISTS x, w. z / 0 >= i2s(2.)28
+NOT res <- MAX x R("s", "s")45
+NOT S(x, 0 / 0, "t u") TRIGGER (1,10] 1.5 = 533
+LET P(x) = R(- -0.5, -3) IN P(-3)17
+S(z, "s", (-0.5))29
+LET P(x) = Z0() IN S(w, 5, y)7
+Q(-0.5)4
+Z0()20
+|> S(0, "t u", - 42)28
+(FALSE) OR S(y, 1 / -0.5, w)172
+LET P(x) = NOT EXISTS w. w / 0 < 2. MOD -3 OR EXISTS z, w. ALWAYS [2m,3) LET P(x) = 1.5 MOD w < -3 + 42 IN P(5) OR NOT (1 >= 0) EQUIV R("t u", _) IN NOT |> [2,2h] (((.))*)*4
+Q(w)33
+EXISTS w. FORALL y, z. R(1.5, 2.)63
+LET P(x) = 0 MOD w >= s2i(42) IN Z0() TRIGGER (1,5m) -0.5 >= 2.24
+("t u" SUBSTRING 1 * 2.)59
+FORALL y, x. |> [0,3) Z0() RELEASE [5,3] FORALL y, z. P(-3)21
+y / 5 SUBSTRING ("s")23
+|> (5,2h) . + Z0()? + .45
+|> (1d,3] P("t u")? + (TRUE?) AND S(w, 1, 2.)337
+res <- CNT z LET Q(x) = (res <- MED y P(y) AND S(z, w, x) OR EXISTS x, y. 1 - w < 42 / "s") IN LET P(x) = ALWAYS R("s", "t u") IN 1 <= x / -3 SINCE "t u" >= 1 UNTIL [30s,2h] FORALL z, x. R(y, 1.5) OR "t u" MOD 1 SUBSTRING z * z TRIGGER LET Q(x) = "s" - y >= i2f(0) UNTIL S((1), 5, y) TRIGGER Z0() IN -0.5 MOD 0 < 1.5 EQUIV |> R(-0.5, 0)?25
+2. * 5 < 0 IMPLIES -3 = w32
+y <= -0.5 - -3 IMPLIES 2. <= 1.5102
+(-3 - 1.5 <= - 42 SINCE [1d,*) R(1, "s")) UNTIL (30s,10) NEXT [2,3] res <- MED y s2r("s") SUBSTRING 2.23
+EVENTUALLY (1,2h] FALSE10
+x >= "t u"30
+NOT -3 * x SUBSTRING 1 OR Z0()5
+FALSE23
+|> [1h,10] (Q("t u")?)*12
+(S(y, _, 1))44
+Q("t u") UNTIL (0,2d) Q(x) SINCE (2,10) Z0()108
+w <= "s" OR R(x - 42, y) IMPLIES (R(-0.5, (1.5))) EQUIV EVENTUALLY (2,3) 1 >= 1.5 MOD "t u" EQUIV 1.5 = -0.568
+1.5 / "s" SUBSTRING f2i(42) AND PAST_ALWAYS (2,*) 42 - 5 <= s2i(1.5)4
+Z0()15
+S(y, "s", -0.5)15
+EXISTS y. P(2.)11
+z > ("t u")48
+((-3 SUBSTRING "s") RELEASE S("t u", w, 0 * -3))9
+Q(-3 - y)46
+FORALL z, w. P(-0.5) AND (w * -3 SUBSTRING -3)9
+0 <= -0.576
+LET Q(x) = NOT Q(-3) IN Z0() EQUIV FORALL z, x. res <- MED z P(- z) AND Z0()11
+(- "s" = z)34
+ONCE (FALSE) SINCE (0,3) ONCE P(0)32
+S(42, 1.5, 0) UNTIL [30s,7] TRUE47
+|> (S(2., "t u", "t u") + TRUE + (R(42, x)?)*)*38
+TRUE UNTIL NOT LET Q(x) = P(5) IN P(0)170
+FORALL w. (42 < FORMAT_DATE("t u")) AND LET P(x) = res <- MIN y 1.5 * w <= "t u" MOD "t u" IN Q(2.) EQUIV 5 = "s" SINCE |> Z0() EQUIV (-0.5 = "t u") OR ((y) >= f2s(-0.5))19
+NEXT <| (0,10) Q(0)69
+LET P(x) = <| [1d,2h] TRUE IN R(1.5, 42) TRIGGER - -0.5 SUBSTRING 1.519
+S(2., 1 MOD w, "s")134
+LET Q(x) = P(z) IN ("t u") <= ("s") AND NOT EVENTUALLY [30s,7) P(s2f(0)) EQUIV R(x, z) IMPLIES res <- SUM z ONCE (2m,10] w / 5 <= (2.)18
+y - -3 = i2f(-0.5)16
+NOT S(0, x, 1.5)31
+res <- MIN z NOT 42 < YEAR(1.5)42
+EXISTS x, y. <| R(1, 1) + TRUE? . + P(1.5)113
+NEXT [30s,3) NEXT (LET Q(x) = LET P(x) = |> (2,*] P(-3 * w)? IN EXISTS w, z. S("t u", "s", -0.5 - 42) IN R(5, 1))21
+NOT res <- AVG z TRUE21
+("t u") >= "s" * -0.523
+y SUBSTRING "t u" * "s"35
+PREV (1,10] NOT res <- MED w Q("s")14
+S(0, "s", "s")17
+PREV (30s,3] Q(_)18
+res <- MED w FALSE108
+res <- MED z LET Q(x) = Q(42) EQUIV R(1, -3) AND P(2.) AND Q(0) OR NOT Z0() IN "s" < -3 TRIGGER MONTH(5) < y23
+Q("s") TRIGGER R(2., 0)25
+NOT S(x, -3, "s") OR Q(5)89
+ALWAYS [5,7] R(w + 0, 1) IMPLIES ALWAYS (1h,5m] YEAR(z) >= x MOD -0.5 RELEASE [2m,7) Z0()40
+PAST_ALWAYS [1d,7) <| (1h,10) Q(r2s(x))?50
+res <- MAX y 5 + 5 < z + 42 SINCE [1h,10) z >= 1.543
+res <- MAX y -3 * "t u" < w EQUIV - 42 = 2.17
+<| S(z, "t u", w)37
+ALWAYS (1,3] - z SUBSTRING z MOD -0.522
+PREV (1.5) < f2i(-0.5)66
+<| TRUE + (P(-0.5)) + . Z0() S(x, -0.5, -0.5) (((TRUE?))* + (.)*)*22
+res <- MIN w R(1, 1.5)4
+Q(y)22
+|> (2m,2d] S(1, 1, 42)8
+Q(- 1.5)23
+PREV FORALL y, x. FALSE4
+Q(5)21
+EXISTS z. (NEXT Z0())14
+|> (5,10) Z0()81
+R((5), YEAR(1)) RELEASE [1d,10] Q(z) TRIGGER EXISTS z. NEXT -3 * 5 SUBSTRING (42)17
+"t u" + 1.5 > - y175
+PREV EVENTUALLY S(42, 42, 1) RELEASE (1,2h) z + x >= 2. TRIGGER FORALL z. (-3) = -0.5 UNTIL [0,3) ("t u" SUBSTRING 0 MOD 5) OR R(f2s(x), "s") AND EVENTUALLY (1d,10) R(42, 1.5)22
+FORALL y, x. Q(0 - 2.)27
+5 * 42 > DAY_OF_MONTH(-0.5)18
+|> TRUE? + Z0()? .4
+P(y)20
+res <- MAX y R(y, x)108
+FORALL w. (- x >= 2. OR YEAR(y) = 2. * 1.5) UNTIL [30s,*) FORALL w. i2s(42) = ("s") AND -3 SUBSTRING ("t u")16
+r2s(5) >= 42 / z4
+P(_)24
+NOT x SUBSTRING i2s(1.5)5
+FALSE40
+res <- MED x |> [30s,7] S(-3, 42 / y, 0)24
+5 / x SUBSTRING i2s("s")17
+EXISTS z. R(0, w)4
+P(0)74
+res <- SUM y res <- AVG z P("s") SINCE ONCE NOT R(x, 1.5) SINCE R(42, "s")80
+res <- AVG w S(2., y, 0) AND LET Q(x) = 5 <= f2i(42) IN S(z, "s", w) OR - 1 <= 14
+Q(w)16
+|> (1h,10) Z0()?23
+LET Q(x) = Q(5) IN TRUE26
+FORALL w, x. S(-0.5, 0, 0)15
+<| (1d,7) Z0()?20
+NOT 0 / -3 < 5 - "s"14
+<| [5,7] Q(2.)9
+R("s", 1)29
+res <- MED w NOT 5 >= 1.5 - 54
+Z0()55
+-3 - 42 >= 1 / w AND (res <- MIN y NOT 42 * 0 < z * 2.)36
+EXISTS x, z. (0) SUBSTRING "t u" / 568
+<| [1h,2d] (R(1.5 MOD 5, - 42))* UNTIL res <- CNT z 5 + z > 2. MOD x99
+S(w + y, 1, 42) IMPLIES (ONCE (2,2d) NOT w < w + 5) TRIGGER [1d,7) |> (1d,10] R("t u", w) Z0() (.)*84
+res <- MIN y LET Q(x) = ("t u" + x <= z) IN "s" < 42 + "s" EQUIV |> (1d,2d) . + Z0()11
+S(42, 5, 0)9
+"t u" > y7
+(Q(42))35
+(EXISTS z. PAST_ALWAYS (5,10] P(0))112
+5 MOD 0 = z RELEASE [0,*) NOT |> S(y, -0.5, "s")? AND LET Q(x) = (x) > -3 IN S(0, 0, -0.5) IMPLIES S(2., x, "s")48
+ONCE [1,2d) 1.5 > -3 + 42 TRIGGER EXISTS y. Q(z)33
+Z0() IMPLIES R(0, y) OR R(- 5, 0)24
+1.5 + 1 SUBSTRING x / 2.28
+EXISTS w, y. i2s(-3) > ("s")30
+EXISTS y. PREV Q(x) UNTIL Z0()24
+FALSE EQUIV R("t u", -3)12
+w - -0.5 > w60
+FALSE TRIGGER [2m,10] w / 42 = y + -0.5 IMPLIES |> R(42, 0)?21
+(1 + 1.5 SUBSTRING 1)12
+|> ((Z0()?))10
+x < f2s(5)55
+res <- CNT x Z0() EQUIV LET P(x) = Q(1) IN R("t u", 42)26
+<| Z0()? + (S("s", 5, _))*102
+P(w) SINCE res <- AVG x res <- CNT x -3 <= MONTH(0) UNTIL -3 SUBSTRING MONTH(0) IMPLIES - 0 >= ("t u")39
+|> [2m,5m) TRUE + S(w, -3, z) Q(w) P(_)22
+NEXT NOT y < s2f(-0.5)36
+FORALL y. P(1) RELEASE S("s", 2., 1)48
+ALWAYS [1,*) EXISTS z, y. FORMAT_DATE(42) < -0.54
+Z0()22
+res <- MAX w (R(_, 0))16
+PREV (1h,7] Z0()150
+0 + "s" SUBSTRING 1.5 - z TRIGGER (5,2h) PAST_ALWAYS (1h,5m) LET P(x) = PREV (MONTH(z) > y) IN LET Q(x) = Q(5) RELEASE Q(0) IN res <- AVG y "t u" <= z69
+(PREV FORALL x, z. S("s", "t u", "t u") IMPLIES TRUE AND "t u" <= 42)20
+FORALL y, z. Q(-0.5)12
+|> . (Z0())*34
+EVENTUALLY [0,3] NOT 1.5 < ("t u")226
+LET P(x) = P(5) IMPLIES (P(1.5)) IN LET P(x) = z > z - 1 IN R("s", -0.5) UNTIL [0,2d] f2s(1) <= 0 IMPLIES FORALL w, x. PAST_ALWAYS [1h,2d] Z0() AND NEXT [2m,10] -3 = ("t u") SINCE [2m,*] 1 / -0.5 <= 1 AND ONCE y SUBSTRING -0.59
+5 > x + 5143
+NOT ALWAYS (2,5m) NOT (2.) < 42 + 0 SINCE ONCE [2,10) R("s", 0) UNTIL (5 > "t u" - "t u") SINCE (0,7] S(42, -0.5, 2.) OR S(1.5, 5, z MOD "t u")22
+5 <= 0 RELEASE R(y, x)22
+1 MOD -0.5 SUBSTRING y24
+ALWAYS 1 SUBSTRING 5 * z12
+w <= 1.5 / 531
+y >= "t u" TRIGGER [0,2d) P(42)106
+ALWAYS (2.) > z OR (-3) > -0.5 - -3 AND FORALL w, y. z = f2i(y) SINCE [5,2h] w > 1 * "s" EQUIV <| (0,2h) .116
+LET P(x) = LET P(x) = PAST_ALWAYS (2,2h) MONTH(w) = 1 IN (S(w, y, _)) IN res <- SUM y - w < (1) TRIGGER (2m,*] Q(-3)35
+"s" SUBSTRING (1.5) IMPLIES P(-0.5)4
+Z0()12
+S(-3, -3, 0)10
+|> P(1.5)?35
+res <- AVG y 1 = z * 1 AND P("t u")189
+res <- AVG x LET P(x) = |> (Q(-0.5))* . Q(-0.5)? IN R(-0.5, 5) SINCE [2m,*] <| (1,10) . OR FORALL x. Q(x) SINCE [1h,5m] "t u" >= f2s(z) IMPLIES res <- CNT x ALWAYS [30s,3) TRUE IMPLIES Z0()8
+<| P(w)?188
+FORALL x, w. ONCE y - z >= y * -3 AND s2r("s") >= w IMPLIES S(- x, w / z, 2.) UNTIL "s" >= 0 TRIGGER [1d,*) res <- CNT w NOT FORALL y, w. Q(0) TRIGGER (30s,5m] Z0() EQUIV FORALL w, z. Q(0)17
+res <- SUM z Q(1)50
+LET Q(x) = Z0() IN -0.5 >= 2. * 0 TRIGGER -3 <= -313
+2. - x <= "s"246
+LET P(x) = LET P(x) = R(y, z) IN PAST_ALWAYS [1d,*] |> [30s,*] S("s", 1, - w)? IMPLIES LET Q(x) = 2. = x IN (w) SUBSTRING "s" EQUIV f2i(-0.5) < 1 EQUIV FORALL z, w. "s" SUBSTRING "t u" * 5 IN EXISTS w, x. EXISTS x, y. FORALL w, x. (z) >= -3 + "s"148
+NOT P(-3) EQUIV Q("s") TRIGGER (5,2h] LET P(x) = PREV [0,5m) 1 > (x) IN Q(1.5) TRIGGER (2,2h] FALSE IMPLIES TRUE AND NEXT P(z - 0) SINCE [1h,7) Z0()11
+R("t u", 0)14
+<| [0,2d] P(5)37
+res <- MIN w "t u" SUBSTRING w - -0.534
+NOT <| [2,7) (S(-3, x, - 1.5)? .)*18
+1 * 42 <= YEAR(-3)28
+res <- SUM y NOT R("t u", 0)70
+EXISTS y, x. 2. + 2. = - 0 IMPLIES PAST_ALWAYS [1h,10) (TRUE) AND TRUE11
+<| (. + .)*6
+(P(1))29
+Q(z) EQUIV Z0() IMPLIES FALSE88
+NEXT res <- AVG x Q("t u") RELEASE z * -0.5 > "t u" IMPLIES EXISTS y, w. R(x, 42 - -0.5)4
+Z0()5
+FALSE178
+PAST_ALWAYS EVENTUALLY (1h,*) LET P(x) = LET P(x) = R(42 + 42, ("s")) IN -0.5 SUBSTRING x AND LET P(x) = FALSE IN S(2., _, x) IN 42 MOD 2. >= 42 IMPLIES TRUE IMPLIES y = MONTH(w)37
+FALSE OR 1 < -3 RELEASE [2,3) R(_, _)34
+w SUBSTRING 0 AND <| (1h,10) Z0()?4
+P(_)109
+LET Q(x) = (5 >= "s" * z) UNTIL [1,7] -0.5 > y IN FORALL x, z. (NOT ((5) <= -0.5 + 2.)) IMPLIES z <= 5 MOD -323
+EXISTS y, z. "s" <= (z)18
+r2s(2.) >= 1.5 - x26
+(|> (1h,7] R(x, z) + Z0())18
+2. MOD 5 < "s" * w10
+NOT Q(1.5)225
+NOT FORALL y, w. PAST_ALWAYS [1h,5m) ONCE x >= FORMAT_DATE(-0.5) SINCE [2m,3] x / z = x + -3 IMPLIES S(w, 2., x) AND LET P(x) = <| . IN ONCE (2,*) ONCE [2m,10] R(-3, _) UNTIL [2,3) res <- CNT z Z0() IMPLIES EXISTS w, y. Q(-3)7
+R(1, y)36
+|> [0,7] (. + (.)*) (Q(x)? + Z0()?)*7
+Q(-0.5)5
+FALSE59
+ALWAYS [1d,3] y = y / 1 UNTIL [1d,7) |> (2m,*) S(42, z, _)?4
+P(0)8
+Q("t u")5
+FALSE11
+|> Q(0 - y)35
+res <- MIN w x > 1.5 IMPLIES (Q(y))112
+LET P(x) = (res <- CNT w ALWAYS [30s,10) S("s", 0, _) OR 1.5 - 42 >= 0 / -3 TRIGGER FALSE) IN S("s" - w, 5, 1.5)52
+LET P(x) = R(y, -3) EQUIV Z0() IN Z0() AND R(1, "s")11
+5 * 42 > -314
+S(y, 2., -0.5)9
+R("s", _)27
+|> [0,*] (P(_)? + (P(z))*)*17
+FORALL x, w. Z0()18
+S(0, "t u" - 1, x)10
+"t u" > -321
+"t u" - x >= -0.5 - x6
+P(1.5)35
+FORALL y, z. Q("s") TRIGGER R(y, _)96
+EVENTUALLY [1d,2d) (PAST_ALWAYS (0,5m) PREV YEAR(y) SUBSTRING z) UNTIL [2m,*] S(-3, 1.5, f2i(1))55
+"s" MOD -0.5 > "s" TRIGGER LET Q(x) = FALSE IN NOT TRUE12
+("t u" > -3)65
+res <- MED w LET P(x) = 2. > (2.) IN res <- CNT w y <= i2f("t u")40
+LET Q(x) = 1 / "s" < s2r(z) IN Q(-3 * x)7
+(0) > 0310
+LET Q(x) = PAST_ALWAYS LET Q(x) = EXISTS x, z. LET P(x) = 1.5 - -3 SUBSTRING DAY_OF_MONTH(-0.5) AND P(y) IN EXISTS w. 42 <= 1.5 IN EXISTS w. TRUE IN (LET Q(x) = 0 - 5 >= 0 RELEASE DAY_OF_MONTH(z) <= ("t u") RELEASE (0,7) Z0() IN LET P(x) = <| R(f2s(42), 1)? IN TRUE SINCE (2m,10) PREV [1,*] res <- MIN z FALSE)34
+2. * -3 SUBSTRING 42 MOD z OR Z0()42
+res <- MAX y Q(_) IMPLIES x >= -0.5 * -0.550
+LET P(x) = res <- SUM y S(1, 2., z) IN (R(2., 42))35
+|> [1d,2d) Z0()? AND - "s" <= "t u"57
+LET P(x) = Q(- -0.5) IN PREV (0,10) (1) SUBSTRING y MOD y52
+ALWAYS (2,2d] EXISTS x, z. Q(42) OR -3 / -0.5 = - -318
+0 MOD "s" >= 1 + w78
+LET P(x) = Z0() IN LET Q(x) = Q(1.5) IN x > - x SINCE S(1.5, "s", 2.) AND Z0()7
+R(z, _)4
+Z0()20
+EXISTS x. S(1, z, x)45
+|> (R("t u", 5)?)* TRIGGER (5,5m) - -0.5 > 429
+<| (TRUE)5
+Q(42)33
+EXISTS x. 42 MOD -0.5 <= 1.5 + 2.12
+"t u" <= "s"4
+P(w)9
+ONCE TRUE23
+S(1.5, -0.5, y + "t u")38
+S(x, 1.5, -3) TRIGGER ONCE [5,2d) TRUE42
+res <- CNT z |> (2,2h] (TRUE? S(5, 1, 1))*8
+R(-3, y)89
+res <- MIN x EXISTS y. 2. - "s" = w * 2. UNTIL (1h,5m] "t u" > "t u" / 2. IMPLIES P(-0.5)13
+(1) = s2i(42)31
+LET P(x) = TRUE IN S(0, z, 1.5)25
+i2f(z) = i2f(y) OR Q("s")11
+x >= (-0.5)6
+x < 2.18
+ONCE 0 <= f2i(1.5)26
+ALWAYS (2,2h] S(2., y, -3)24
+PREV (y MOD 1.5 = "t u")19
+DAY_OF_MONTH(0) = w16
+(1) SUBSTRING 2.185
+S(2., 1, w) IMPLIES NEXT (1d,7] 42 MOD w >= - -0.5 EQUIV EXISTS w, z. NEXT (1d,5m] LET P(x) = FALSE IN R(1.5, -0.5) AND Z0() AND S("t u", -3, "s") RELEASE [2,2h] DAY_OF_MONTH(y) < 0 - y58
+NOT EXISTS z, x. |> (2,7) P(y) RELEASE [0,*) NOT "s" < 1.5127
+LET Q(x) = "s" = "s" + "t u" IN NOT R(FORMAT_DATE(z), 1) TRIGGER [5,5m] Z0() EQUIV <| [2,2h] (Z0()?)* TRIGGER EXISTS x. <| TRUE4
+Z0()68
+EXISTS z, w. ("t u") > x IMPLIES EVENTUALLY (2m,2d) 1.5 <= "t u" + 125
+S(x, s2r("t u"), s2i(-3))58
+NOT res <- AVG z EXISTS w. ALWAYS (2m,*] -0.5 SUBSTRING 2.10
+- -3 < "s"4
+Q(0)4
+Z0()70
+LET P(x) = LET P(x) = R(x, 2. MOD 42) IN Q(0) IN EXISTS w. R("t u", z)12
+S(0, -3, 42)80
+NOT Q(w) SINCE (1h,2d] LET Q(x) = P((-3)) IMPLIES 2. * w >= "t u" IN (R(1.5, w))18
+"t u" + "t u" >= 126
+(y SUBSTRING "t u" MOD 2.)17
+S(-3, -0.5, -0.5)17
+(- z >= f2s(1.5))31
+NEXT (1h,*] R(z * "t u", "t u")103
+EVENTUALLY LET P(x) = 0 / -3 <= z MOD 1 IN Z0() IMPLIES FORALL y, x. LET P(x) = 1 * -0.5 > -0.5 IN TRUE4
+Z0()5
+FALSE123
+EVENTUALLY (1d,2h] 2. * "s" > 1.5 EQUIV |> [2,10] . AND S(1, w, 1) OR EXISTS y. R(y, 1.5) EQUIV R(y * w, -0.5) IMPLIES TRUE58
+NOT LET P(x) = (- 1 SUBSTRING -0.5 SINCE Z0()) IN NOT P(y)4
+P(x)27
+PAST_ALWAYS [1,*) 0 = w + y17
+res <- MIN y Q(x)25
+(42 >= - 42) AND NOT Z0()52
+LET Q(x) = S(0, w, 5) IN (42) SUBSTRING 1 EQUIV Q(w)49
+PREV [1d,3] R(x, YEAR(42)) AND - -0.5 <= 0 * -0.58
+R(2., 5)58
+42 MOD y SUBSTRING r2s("s") IMPLIES R(42, _) IMPLIES FALSE49
+LET P(x) = 1.5 SUBSTRING - 0 IN res <- SUM w Z0()23
+Q(w) AND -3 SUBSTRING y18
+S(_, 2., -0.5 * y)50
+PREV res <- CNT w Z0() OR w MOD 1.5 SUBSTRING - -312
+"s" + 0 > 4241
+EXISTS y, w. Q(1) AND S(z, -0.5, 2. - 2.)4
+|> .34
+res <- SUM y NOT Z0() RELEASE Z0()24
+P(0) EQUIV S(2., y, "s")14
+EXISTS x. Q(1)34
+EXISTS w, z. s2f(-0.5) SUBSTRING w30
+FORALL y. FORALL z, y. P(-0.5)8
+NOT Z0()78
+EXISTS z, w. - "t u" >= (1) RELEASE 42 < x IMPLIES PAST_ALWAYS [1h,2h) (5) > x8
+NOT Z0()7
+R(5, w)14
+- 0 >= ("t u")12
+- -0.5 <= -326
+w * y > x * z RELEASE Z0()37
+ALWAYS PAST_ALWAYS P(_) AND (Q(-0.5))15
+S(-3 + z, w, _)24
+PREV (1h,7) S(2., y, -3)63
+NOT res <- CNT x S(z, "s", 5) AND (P(x)) UNTIL (1d,*) Q(i2s(1))17
+5 / 42 < x - -0.518
+|> [2m,2h) (P(w))*37
+LET P(x) = ALWAYS (1d,*] P(y) IN Z0()64
+EXISTS y, w. LET Q(x) = y = -0.5 - w IN f2i(1) SUBSTRING ("t u")283
+FALSE RELEASE (1,*] S(z, 2., -0.5) RELEASE (30s,*] P(- x) AND res <- MAX z w <= 42 / "t u" AND x * -0.5 <= "t u" * x RELEASE (0,2d) "s" * "t u" = -3 - 2. UNTIL [30s,7] Q(42) EQUIV 42 = - 1 UNTIL (30s,*) FORALL y. 1 SUBSTRING (-0.5) UNTIL 42 SUBSTRING -3 MOD 42 SINCE [2m,3] R(1.5, 0)24
+1.5 - "t u" <= z MOD 1.56
+42 < 18
+|> P(-3)10
+(P("t u"))41
+(LET Q(x) = R(i2f(-0.5), 0) IN R(x, 1.5))40
+EXISTS y. FALSE TRIGGER PREV P(-3 * "s")23
+PREV (1d,3) R(_, 5 * w)39
+S(x, -0.5, _) RELEASE - 42 < -0.5 / 1.524
+ALWAYS S("t u", z, -0.5)27
+S(0, 1.5, w) IMPLIES Q("s")7
+Q(-0.5)4
+P(5)11
+z <= -3 + x26
+(P(0)) UNTIL (1h,10) P(42)30
+1.5 + "t u" SUBSTRING 1.5 * 4244
+res <- CNT x y < y EQUIV PREV (x / 1.5 <= 0)9
+NOT z > 524
+DAY_OF_MONTH(-0.5) > "s"52
+(FORALL y, w. 0 < - 5 IMPLIES |> (1h,3] P("t u")? .)115
+LET P(x) = 1.5 SUBSTRING z EQUIV -3 = -3 IN Q(0) IMPLIES -3 <= DAY_OF_MONTH(5) AND res <- MIN w ((1.5) <= -0.5 * z)4
+P(y)11
+S(1, 42, z)45
+res <- CNT y FORALL w, x. 0 > 5 * -3 OR P(-3)117
+res <- SUM y LET Q(x) = |> (1h,10] . + . IN LET Q(x) = res <- MED w 5 SUBSTRING -0.5 IN 1.5 SUBSTRING - -3 EQUIV P(w)52
+EVENTUALLY (0,7) S("s", "t u", 1.5) UNTIL P(5 MOD x)4
+P(x)12
+|> (1d,2h] .57
+|> (2m,2h) TRUE? (P(i2f(2.))?)* Z0() + S(_, w, 0)? + TRUE38
+ONCE [1d,10] res <- SUM y -3 MOD z = 55
+FALSE29
+res <- CNT y |> (0,10) P(1.5)14
+x + 2. > 1 + 040
+FALSE UNTIL (5,3] x / -0.5 SUBSTRING "s"19
+res <- MAX y P("s")39
+Q(-3) IMPLIES Q(x) TRIGGER [5,10) Q(2.)40
+FORALL x. (R(y, -3)) IMPLIES r2s(1) >= x107
+LET Q(x) = -3 = 2. RELEASE Q(y) IN ("s" MOD "t u" >= "t u") TRIGGER [2m,7) x * 42 <= (1.5) IMPLIES P("t u")16
+S("s", -0.5, 42)14
+5 SUBSTRING 2.36
+ALWAYS [1h,*] <| (30s,10] (.)* TRUE?38
+FORALL x. P(y) EQUIV S("t u", 1.5, 42)28
+EXISTS z, w. i2s(42) = (1.5)86
+EXISTS z. P(w + 1.5) OR FORALL y. TRUE UNTIL [5,2h) EVENTUALLY [1d,10] |> (1,10] Z0()?49
+w = 1.5 EQUIV NOT ONCE P(42) AND PREV (2m,7] P(z)39
+res <- MAX y LET Q(x) = P(-0.5) IN Z0()45
+FORALL y, x. 0 = 1 AND P(0) SINCE [2,3) Q(-3)17
+w SUBSTRING z / 04
+<| .7
+R(w, 5)15
+|> [5,10) TRUE?84
+NEXT FORALL z, x. 1 <= (1) IMPLIES res <- MIN x |> [1h,*) . EQUIV NEXT "s" * w < "s"4
+Q(0)33
+NEXT TRUE IMPLIES S(42, 0, "t u")35
+NOT res <- SUM x 2. + 1.5 <= 2. - 139
+P(-0.5) UNTIL [5,5m) - -3 = "t u" * "s"122
+res <- MED x res <- MIN w R(s2f(2.), 2.) SINCE (0,2d) NOT Z0() AND NOT 42 = 5 - "s" SINCE (1h,5m) Z0() AND Z0() UNTIL Q(w)27
+1 * "s" SUBSTRING 0 MOD "s"45
+R(1.5, -3) TRIGGER (1h,5m) -3 + -0.5 >= - "s"19
+res <- MIN w Q("s")24
+Z0() AND <| [5,5m) TRUE?18
+("s") = 5 MOD -0.54
+TRUE4
+Z0()34
+PAST_ALWAYS res <- SUM z 2. <= - w112
+EXISTS x, w. <| [1,*) (S(_, z, 42)) IMPLIES FORALL z, x. FALSE TRIGGER FORALL w. z - 42 < x AND PREV [2,2d) Z0()5
+P(42)17
+EVENTUALLY (Q(_))247
+PREV [1d,3] res <- MED z R(z, i2s(5)) OR res <- MIN w S(42, x, -0.5) TRIGGER [5,10] <| [1d,10) (.) RELEASE (0,2d) LET Q(x) = Q("s") EQUIV res <- CNT z res <- AVG w S(1.5, y, 1.5) IN EXISTS x, y. |> (1h,*] Q(0) UNTIL P("s" - -3) EQUIV -3 - 2. >= 426
+0 <= y64
+EXISTS y, w. R("s", -3) IMPLIES 5 < z AND <| [1,3] P(1.5) + Z0()243
+LET Q(x) = FORALL x, w. <| (30s,10) (S(z, _, _))* OR TRUE IN LET Q(x) = R(_, y - 1.5) IN Q(1) OR NOT Q(w) SINCE [1,3) EVENTUALLY [0,5m) -3 MOD x <= - 1 SINCE R(-3, 42) AND res <- MED y (P(-3)) EQUIV |> (1d,*] . (Z0())* (S("s", 5, "t u"))* Z0()59
+FORALL z. 1 - w SUBSTRING s2f(1.5) UNTIL (0,5m) 2. = s2f(z)28
+S(-0.5, 0, y) EQUIV <| Q(_)?45
+-3 < (y) OR R((0), w) TRIGGER (0,2d) NOT P(1)60
+Z0() TRIGGER (1,10] z = 0 RELEASE [5,2d) R(z, -3) EQUIV TRUE78
+LET P(x) = TRUE IN NOT P(-0.5) RELEASE ALWAYS FORALL x. ALWAYS [0,5m] -0.5 > 012
+|> [1h,10] .72
+PREV (FORALL y. P(w)) SINCE [30s,7) PREV [1,5m) FORALL x. FORALL x. Z0()287
+|> (1d,3) S(1.5, "t u", -0.5)? TRUE? RELEASE LET P(x) = 5 = -0.5 IN Q(42) EQUIV LET P(x) = P(z) IN <| (0,10) Q("t u") OR <| [1d,3) . IMPLIES EVENTUALLY [5,5m) P(y) EQUIV res <- MAX x "t u" = 5 OR NEXT [2,2d] LET P(x) = 0 > z IN P(1) IMPLIES FORALL y. ONCE (2,*] y <= w EQUIV - y < -3 / 010
+z / z <= z8
+NOT Z0()4
+TRUE74
+res <- MAX z <| S(w, -0.5, y)? RELEASE [1,2h] z * "t u" > 2. TRIGGER P(-3)101
+LET P(x) = (-3 / x >= z - w) AND f2s("t u") SUBSTRING z IMPLIES Z0() IN EXISTS w. |> S(w, 1.5, -0.5)?39
+res <- AVG z PREV [5,*] R("t u", "t u")14
+(-0.5) = w - 59
+Q(- -0.5)57
+LET P(x) = S("t u", "t u" / 1, 2.) IN S(_, 5, 42) OR Q(w)41
+EVENTUALLY (1h,2h] s2f(z) SUBSTRING "t u"115
+FORALL y, w. LET P(x) = ALWAYS (30s,2h) Z0() TRIGGER (2m,2d) P(5) IN NOT res <- MAX w (1) > -3 EQUIV S("t u", 1, 0)26
+FORALL z. 42 >= 42 * "t u"6
+(TRUE)21
+- 0 > 42 RELEASE Z0()18
+2. MOD y < 1 MOD 132
+|> P("s") OR R(-3, -0.5) OR Q(w)20
+DAY_OF_MONTH(2.) = x77
+Q(-0.5) EQUIV NOT res <- MIN w |> . SINCE [1h,*) P(42) AND FALSE OR 42 <= (y)228
+res <- SUM y <| (5,3] Z0()? Q(1.5)? Z0()? TRUE SINCE (1h,10) NOT ALWAYS [2m,2h] FORALL y, w. Q(-0.5) UNTIL [30s,7) EVENTUALLY [1,3] Q("t u") EQUIV Q(_) OR LET P(x) = res <- MED w NEXT EXISTS z, w. EVENTUALLY P(z) IN |> Q(z - 5)?26
+0 MOD "s" SUBSTRING s2f(x)28
+(ONCE (30s,7] |> S(1, w, 0))55
+LET Q(x) = NOT FORMAT_DATE(1) <= f2i(z) IN Z0() OR Z0()17
+-3 * 1.5 >= 1 - 017
+Z0() OR -3 <= 1.55
+FALSE10
+f2s(5) = w148
+ONCE NOT R((-0.5), 1) TRIGGER EVENTUALLY (2,7] w MOD 2. SUBSTRING ("t u") RELEASE [1,3] ALWAYS [5,5m) res <- SUM x ONCE [1,7] NEXT (1h,2d] P(- -0.5)39
+LET P(x) = Q(-0.5) AND TRUE IN R(1, -3)23
+"t u" + 0 > 1.5 OR Z0()4
+Z0()59
+EXISTS x. S(-3, "t u" MOD -0.5, y) OR -3 >= (w) SINCE P(42)66
+LET Q(x) = (|> (1,7) (S("t u", 5, _)?)* Z0() + (Q(42)?)*) IN FALSE10
+S(x, _, 0)95
+LET Q(x) = y + y > y SINCE (0,10) EXISTS z. (i2s(1) < w IMPLIES R(y, -0.5)) IN NOT - 1 > 2. / 54
+Z0()66
+res <- AVG x LET Q(x) = |> (5,2d] TRUE IN |> (2m,7] (TRUE?) P("s")20
+(ONCE (-0.5) >= "s")20
+NOT ONCE [5,5m) Z0()11
+S(-3, 1, 0)162
+(NOT LET P(x) = EVENTUALLY [2,3) R(5, x) IN "t u" * "t u" >= 5 AND ONCE [2m,7] res <- MED w S(-3, - 0, 5) UNTIL (2m,3] EXISTS z, y. FALSE SINCE [0,5m) |> (TRUE)*)73
+LET P(x) = NOT FORALL z. FALSE IN NOT Z0() RELEASE (2m,10) f2i(-3) >= (y)4
+Z0()48
+EXISTS y. (ONCE (1,10] TRUE) SINCE [30s,5m] Z0()117
+res <- MIN z res <- SUM y res <- MAX x S(z, (y), 2.) TRIGGER (30s,3) <| [1d,5m] S(2., 1, -3)? R(i2f(0), -0.5) P(0)? .8
+(5) >= 089
+DAY_OF_MONTH(42) <= (1.5) IMPLIES |> (1,3) . EQUIV |> [2m,3) Q(5)? OR |> (Q(x) + Q(-3)?)*15
+<| (0,2d] TRUE?95
+EXISTS z, y. NOT LET Q(x) = NOT (f2s(-0.5) >= 2.) IN <| [30s,2d] Z0() TRIGGER res <- SUM z P(x)20
+FORALL y, z. P(-0.5)19
+(1.5) = "s" MOD "s"17
+y / w <= 5 - -0.59
+-3 <= "s"10
+NEXT Q(-3)9
+- 42 > -3111
+PREV (2,10] 0 = -3 IMPLIES PREV EVENTUALLY res <- AVG z ALWAYS (1,3] P(42) AND FORALL z, w. ONCE 2. * "t u" = y13
+<| (2,*] P(y)23
+P("t u" / -3) OR z >= 122
+EVENTUALLY [5,10) Q(y)32
+|> . (. + R("s", "t u")?) (Q(x))27
+Q("s") UNTIL (1h,2h] Q(1.5)58
+<| (2m,*] TRUE + Z0() + (.) + P(-0.5) + TRUE . + R(42, 2.)23
+PAST_ALWAYS (5,10] Z0()15
+FORALL z. Q(42)127
+Z0() SINCE [2m,3] PREV [1,3) s2f(1) > 5 AND 1 / 1.5 >= - 1.5 UNTIL (0,2d) 5 = f2s(-0.5) SINCE [1h,7) NEXT [1,2h] -0.5 > 1 + 1.5119
+- y = 1.5 - 42 EQUIV Z0() EQUIV P(w) TRIGGER (1h,2h] Z0() SINCE [2,3] EXISTS y. z * 5 > "s" MOD w UNTIL [0,5m] P("t u")22
+EVENTUALLY [5,7] FALSE16
+- 42 SUBSTRING x23
+LET P(x) = P(_) IN Z0()6
+(TRUE)18
+-3 / y <= MONTH(x)12
+|> (2m,5m] .107
+NOT ALWAYS (5,2h) PAST_ALWAYS [1,2h] 5 >= "t u" / "t u" SINCE ("s") SUBSTRING -3 * 42 OR (NOT x - y = -0.5)4
+TRUE116
+LET Q(x) = FORALL w. Q(_) IMPLIES FALSE RELEASE [2,2h] NOT Q(1.5) UNTIL LET P(x) = P("s") IN Q("s") IN 0 * 1.5 <= -3117
+res <- MED x LET P(x) = (S(42, "t u", y)) IN -0.5 >= DAY_OF_MONTH(-0.5) EQUIV R(-0.5, x) AND LET Q(x) = Z0() IN P(2.)21
+S(x, "t u" MOD 5, 2.)18
+PREV (30s,2h) TRUE35
+(R(0, -0.5)) AND (1) < "t u" + -0.536
+res <- SUM w |> (. (Q(5)) + . Z0())*4
+Z0()14
+EXISTS y. Z0()9
+5 = "t u"53
+res <- CNT z y SUBSTRING -0.5 + 2. UNTIL [2,7) Q(1.5)5
+FALSE29
+-3 - "s" SUBSTRING -0.5 MOD 515
+(0) >= w / -0.525
+2. + -0.5 SUBSTRING "t u"19
+(PREV [1h,*] w > 1)58
+LET Q(x) = Z0() IN NOT (5) <= 0 * 0 SINCE "s" SUBSTRING 2.36
+<| (5,7) Q(f2s(-3))? EQUIV 0 / w > 05
+FALSE5
+P(42)17
+FORALL y, x. P(x)36
+NOT |> S(5, 2., 1.5)? . AND NOT TRUE8
+NOT P(1)28
+NOT Q(r2s(42)) UNTIL R(x, 1)5
+P(-3)36
+EXISTS z. FALSE IMPLIES |> (1d,5m] .58
+NOT <| P(y)? UNTIL [5,10) <| (0,5m] P(-3)? AND - 5 = 1 - 519
+NEXT [1,*] R(2., 1)15
+NOT 2. <= y - 113
+(s2r(5) < 42)12
+P(s2i(-0.5))31
+res <- AVG y "s" * 1.5 >= "t u"29
+<| [30s,2h) S(42, 42, 1 / y)?65
+ONCE Z0() SINCE s2f(42) < -3 AND -0.5 = 42 EQUIV NOT Q(w) OR TRUE49
+res <- SUM w Z0() TRIGGER [1,7) -3 MOD 0 < 5 * 2.47
+Q(-0.5) UNTIL EVENTUALLY [1h,10) S(x, "t u", w)4
+Z0()14
+S(42, 2., 1.5)25
+res <- MIN w R(0, x * -3)70
+res <- MIN z res <- AVG y NOT P(2.) UNTIL (30s,5m) PREV [2,3] w <= "s"82
+P(-0.5) SINCE [5,5m] Z0() UNTIL (2,2d) PREV res <- MIN w (Z0() EQUIV y > 0 * -0.5)25
+res <- MED y - 2. > 0 / x26
+(w) < y IMPLIES - 5 <= (5)20
+<| . S(0, 0 - x, _)?7
+w <= 2.206
+y <= -0.5 IMPLIES PAST_ALWAYS [1,*) "t u" >= y UNTIL [1h,10) ONCE (1,10) FALSE RELEASE (1h,2d) LET Q(x) = Z0() IN P("s") UNTIL [1,10] res <- AVG x y - 0 = - y IMPLIES NOT S(x, 1.5, -3) EQUIV ALWAYS R(5, -3)13
+5 * "t u" = w5
+FALSE58
+(i2f(1) < (w)) AND w = r2s(w) TRIGGER [2,3) (-3) < 0 / 1.528
+1.5 MOD x SUBSTRING -0.5 + w6
+42 < 590
+EXISTS w. EXISTS y, z. PREV (30s,7] z >= - 1.5 IMPLIES Z0() UNTIL (30s,10] (1.5 >= 0 - 2.)44
+res <- AVG x |> (2,10] . + R(z, 2.)? + . + .21
+y / y SUBSTRING 0 + y4
+P(z)74
+(2. / 2. < z - -0.5) RELEASE (1,2d) LET P(x) = S(w, x, 0) IN 1.5 > -3 * 4256
+EXISTS x. f2s(z) > 1.5 - w OR "t u" = f2i(5) UNTIL Q(42)62
+LET P(x) = 5 < 1 / "s" IN ALWAYS (30s,2d] MONTH(y) SUBSTRING y19
+S(1, f2s(x), "t u")16
+w >= w MOD "t u"7
+P(-0.5)34
+LET Q(x) = FALSE IN f2i(1.5) < "s"17
+res <- CNT w P(_)4
+Z0()21
+ALWAYS (2m,10) P("s")13
+z * z < 1 * w15
+- 42 = 2. / "s"32
+EXISTS z. R(0, "s") RELEASE TRUE13
+<| (2,3) TRUE11
+S(x, 1, -3)348
+LET P(x) = res <- AVG x NEXT (Q("s")) UNTIL FORALL y, z. EXISTS z, w. y = z SINCE (1h,7] LET Q(x) = R(1.5, z) IN -0.5 + -3 >= - -3 IMPLIES P(-0.5) OR "t u" / 5 > w EQUIV FORALL x. S(y, z, - x) TRIGGER NEXT <| S("t u", 1, 0)? IN LET P(x) = S("t u", 1.5, 5) IN "t u" + 42 SUBSTRING 0 - y AND S(2., z, "s") OR <| R(2., x) + Z0() UNTIL 42 + 1 < - "t u"22
+res <- MIN y NEXT Q(z)5
+FALSE37
+Q(0) UNTIL (w) < -0.5 / x EQUIV 5 = 522
+S(1.5 MOD x, "t u", _)74
+FORALL x, y. LET P(x) = 2. - 2. SUBSTRING "s" MOD 1 IN S("t u", s2r(0), 1)4
+Q(y)20
+"t u" MOD -0.5 = - 578
+EXISTS y, x. res <- MIN w w <= 1.5 UNTIL (1d,*) PAST_ALWAYS [5,3) 0 >= 5 MOD w32
+FORALL y, x. S(w, 2. * 0, "t u")199
+LET P(x) = PAST_ALWAYS [1d,7) ONCE (30s,*] FALSE IN NOT Z0() IMPLIES res <- MIN w 1.5 + 1.5 SUBSTRING ("s") AND DAY_OF_MONTH(1.5) <= 5 IMPLIES NOT 2. <= -0.5 SINCE [0,10] FALSE TRIGGER [30s,*) (Z0())15
+(42 > "s" - 42)46
+-0.5 <= i2f(-3) SINCE [5,5m) -3 * "t u" > -0.521
+FORALL w, y. ((Z0()))141
+NEXT LET Q(x) = res <- AVG y ("t u" SUBSTRING z MOD -3) IN Q(-0.5) AND TRUE OR z MOD y > - "t u" OR FORALL y. res <- MED w i2s(5) < z MOD 1.529
+FORALL y. ONCE (5,2d] Q(-0.5)16
+P(z) EQUIV P(2.)110
+LET P(x) = LET Q(x) = (Q("t u")) AND LET Q(x) = f2i(1) > 5 UNTIL z + 0 = y IN P(2.) IN Q(z) IN S(_, 42, "t u")53
+(1.5 >= (w)) TRIGGER 5 / 2. <= "s" EQUIV 0 * "s" <= 022
+NOT 42 SUBSTRING 1 / 07
+R(0, w)11
+#SIG
+P(int)18
+#SIG
+P(int,string)34
+#SIG
+P(int, string, float, regexp)8
+#SIG
+P()15
+#SIG
+P() Q(int)13
+#SIG
+P(x:int)23
+#SIG
+P(x:int, y:string)18
+#SIG
+P(x:int:junk)12
+#SIG
+P(:int)12
+#SIG
+P(int:)18
+#SIG
+P(int) P(int)12
+#SIG
+tp(int)12
+#SIG
+ts(int)18
+#SIG
+tpts(int,int)31
+#SIG
+P(int) # comment
+Q(string)12
+#SIG
+P(bool)12
+#SIG
+P(int,)12
+#SIG
+P(,int)18
+#SIG
+"quoted"(int)15
+#SIG
+r"rq"(int)15
+#SIG
+P("x:int")10
+#SIG
+P("")22
+#SIG
+p.q!r[0]/s:t(int)10
+#SIG
+P(int10
+#SIG
+P int10
+#SIG
+(int)13
+#SIG
+P((int))5
+#SIG
+22
+#SIG
+# only a comment
+11
+#SIG
+5(int)13
+#SIG
+x-y(int)11
+#SIG
+_(int)14
+y -3 UNTIL 5-330
+LETPAST > = AND , x-5 r"p" SUM5
+* LET13
+> 2d ) <- SUM24
+r"p" AND - MATCHES 5-3 .29
+TRIGGER EVENTUALLY IN PREV OR37
+P(x) TRUE x EXISTS IMPLIES IN TRUE <|22
+PAST_ALWAYS * LET -3 _16
+[ >= |> < MIN OR12
+NOT |> MAX ;30
+MED . 1.5 . 2d 1.5 ] y FALSE ?17
+TRUE EXISTS + FRZ33
+AVG SINCE = ; LET , 3h |> TRIGGER34
+FALSE FRZ y EQUIV PREV PAST_ALWAYS35
+FALSE 5-3 [ <= ] FORALL CNT NOT y (37
+EVENTUALLY . = EXISTS <- >= ALWAYS <-42
+IMPLIES y ) TRUE FALSE PAST_ALWAYS TRIGGER7
+TRIGGER10
+SINCE * <-12
+TRUE -3 = OR10
+AVG ] P(x)16
+LET - > <- IN >=28
+SUBSTRING r"p" PREV MIN <= ,19
+Q(y,z) . EVENTUALLY18
+LETPAST -3 EQUIV ;3
+x-521
+SUBSTRING r"p" y = OR1
+>32
+OR CNT ALWAYS PAST_ALWAYS MED 2d18
+) s2r r"p" 5 f2i /36
+LET <| EXISTS "s" |> "s" * PREV r"p"10
+<= x-5 MED20
++ TRIGGER NOT EXISTS37
+>= IN AND x-5 IN PAST_ALWAYS 5 "s" IN4
+r"p"39
+MAX - SUBSTRING ALWAYS 2d r"p" OR UNTIL26
+f2i SUBSTRING "s" FALSE <=43
+r"p" ] SUM MIN > RELEASE IMPLIES f2i = NEXT48
+FORALL r"p" <= MOD NEXT "s" NEXT RELEASE IMPLIES9
+OR CNT -342
+NOT MIN MED RELEASE PREV 1.5 CNT ; RELEASE11
+MOD LETPAST2
+3h24
+UNTIL NEXT f2i ] MATCHES24
+FRZ 5-3 x f2i P(x) s2r 533
+2d f2i 2d <| _ MAX EQUIV _ EXISTS12
+|> |> 1.5 <-10
+x-5 FRZ <=35
+) ; r"p" RELEASE LET < 1.5 MIN . <=28
+IMPLIES MIN x AVG AVG 5-3 >=10
+IMPLIES <|32
+<| / = Q(y,z) [ FRZ CNT [ 5-3 3h36
+5 MAX EQUIV <| AND ] _ FALSE f2i FRZ18
+MED <| ) SINCE . +21
+EXISTS , <= UNTIL | )18
+TRUE TRUE P(x) FRZ10
+1.5 ) ONCE32
+IN * LET MED ONCE SINCE FORALL /5
+, NOT20
+SUM EQUIV RELEASE <-26
+IMPLIES y ALWAYS r"p" - -341
+. SINCE 2d MAX Q(y,z) > IMPLIES EQUIV MED55
+OR FORALL f2i |> s2r -3 EVENTUALLY SUBSTRING Q(y,z) 5-36
+OR 5 |6
+FORALL27
+Q(y,z) FORALL y MED IMPLIES30
+LETPAST FORALL = AVG . ( s2r (6
+[ , <-13
+SUBSTRING < )23
+>= MAX RELEASE <| [ CNT47
+>= LET 2d EQUIV NOT IMPLIES | SUBSTRING MATCHES9
+FALSE MED36
+< _ - Q(y,z) EXISTS Q(y,z) -3 <- CNT13
+ALWAYS r"p" ?18
+FALSE < MATCHES |>19
+? 3h . x-5 1.5 TRUE38
+r"p" Q(y,z) TRUE >= <| = MIN SUM 2d <=29
+<| y TRUE <| -3 | MED |> 3h .9
+3h x-5 3h1
++27
+NEXT LETPAST . , | = "s" >=36
+MOD LET IMPLIES <= MED ( s2r MED ? ?7
+MED 5-318
+|> ONCE FRZ x-5 <=9
+5 RELEASE46
+LETPAST f2i 5 EVENTUALLY x-5 "s" ONCE TRUE x-59
+| r"p" <|3
+( -35
+P(x) "s" -3 x <- . LETPAST |> SUM _43
+ONCE 2d EVENTUALLY x MATCHES LET SINCE , >=18
+PREV NEXT FORALL +2
+<=33
+5 MOD EXISTS LET LETPAST -3 MOD y18
+SINCE <| . x-5 SUM18
+SUBSTRING EQUIV |>6
+? r"p"39
+3h TRUE . TRUE x IN MATCHES PREV NOT 2d3
+MED1
+>8
+PREV FRZ25
+<- TRUE CNT x 2d ALWAYS .15
+MATCHES ; * , <32
+>= TRUE x >= IN UNTIL EVENTUALLY30
+< MATCHES 2d . AND MATCHES 1.531
+AND AVG MATCHES ] AND SUBSTRING13
+x-5 MAX SINCE27
+SINCE 2d MAX - -3 SINCE [ .7
+MAX + _25
+r"p" IMPLIES MATCHES , 3h26
+x MOD ALWAYS AVG P(x) = OR9
+UNTIL NOT22
+<- x CNT < * EQUIV f2i36
+<- SUM IN RELEASE EXISTS MAX <- TRUE33
+MAX P(x) ALWAYS MOD SINCE "s" = ]45
+? _ ; EXISTS ONCE SINCE FORALL EXISTS 5 FALSE1
+>49
+3h NOT |> , PAST_ALWAYS PAST_ALWAYS [ LET -3 PREV38
+>= + RELEASE x-5 s2r FALSE IMPLIES "s"22
+FRZ - EVENTUALLY SINCE49
+TRIGGER PREV MIN MAX , PAST_ALWAYS NEXT y IMPLIES29
+. + FALSE ; EXISTS <= s2r ( (21
+FORALL TRIGGER MED 2d26
+2d LETPAST MED "s" _ 1.5 >9
+NOT EQUIV25
+[ = SUBSTRING - UNTIL SUM3
+"s"42
+SUM <- r"p" EXISTS SINCE r"p" ; EXISTS "s"3
+f2i36
+NEXT y EVENTUALLY = , ) f2i x > ONCE14
+|> MATCHES 1.520
+MIN SUBSTRING x-5 -331
+SINCE PAST_ALWAYS x TRUE |> FRZ13
+2d P(x) MAX ]41
+P(x) ( EQUIV MIN NEXT MIN NOT P(x) TRUE |6
+x < >=34
+AVG PAST_ALWAYS . ? ? r"p" ( s2r y6
+[ PREV11
+s2r RELEASE5
+2d IN36
+; 2d PREV MED [ MAX <| [ = SUBSTRING19
+? NEXT EXISTS ? NOT25
+CNT <- NEXT SINCE IN TRUE7
+IMPLIES5
+1.5 =19
+AVG SINCE | 5 FALSE43
+"s" P(x) AVG - IMPLIES [ EXISTS 1.5 5-3 MIN15
+NEXT UNTIL |> |25
+SINCE CNT + <- UNTIL ONCE3
+AND16
+Q(y,z) x-5 SINCE3
+FRZ4
+5 IN23
+2d AND < FRZ ; ] x-5 <-3
+MAX5
+MOD .24
+NEXT RELEASE CNT SINCE +7
+FRZ MED14
+IMPLIES ] <| *41
+PREV EXISTS "s" NEXT x < LETPAST NOT IN -4
+NEXT35
+x-5 > >= FALSE ) IN s2r SUBSTRING )25
+PAST_ALWAYS > PAST_ALWAYS20
+SINCE ? ? FALSE ) 2d5
+f2i ]4
+PREV35
+MATCHES SUM x NEXT <| MATCHES FALSE31
+AVG MIN * 1.5 ; SINCE RELEASE (11
+LETPAST < ;7
+AND LET37
+y FRZ "s" SUM SUBSTRING LET SUBSTRING50
+x-5 MATCHES x TRIGGER EVENTUALLY MIN ONCE SUM P(x)34
+>= f2i 1.5 * MAX MATCHES = CNT SUM7
+TRIGGER10
+f2i FORALL29
+- CNT ? 5-3 SUBSTRING NOT MIN47
++ EQUIV >= ) TRIGGER * PREV EQUIV EXISTS ALWAYS22
+) 5-3 * ] * > = <- FRZ8
+EXISTS ,15
+5 FORALL <| - .44
+MAX f2i >= ALWAYS s2r 2d RELEASE 1.5 LETPAST11
+FORALL NEXT34
+LET EXISTS TRIGGER PAST_ALWAYS MOD56
+EVENTUALLY 1.5 PAST_ALWAYS TRIGGER ) * ; FORALL - FORALL3
+< =23
+MED AND TRIGGER y 5 LET31
+MATCHES TRIGGER r"p" . |> EQUIV14
+PREV r"p" ONCE22
+UNTIL FORALL * x AVG ?3
+CNT9
+IN 2d x +26
+FRZ IMPLIES 5 <| FALSE * ,7
+>= <- *17
+| OR PREV RELEASE21
+MOD EXISTS TRIGGER |>46
+f2i UNTIL TRIGGER SINCE 3h IMPLIES PAST_ALWAYS32
+AND FRZ x-5 - P(x) / TRIGGER LET17
+RELEASE SUBSTRING39
+AVG NOT NOT 2d MOD TRUE PAST_ALWAYS NOT21
+ONCE >= PREV EXISTS ;16
+EXISTS > MED x-55
+UNTIL7
+| f2i ;17
+SUBSTRING TRIGGER43
+TRUE <| MATCHES [ , LETPAST ] x RELEASE MOD1
+;3
+AVG4
+-3 >44
+x RELEASE -3 LETPAST EVENTUALLY ) EVENTUALLY1
+)11
+> EXISTS <|21
+f2i 1.5 FORALL FORALL6
+EXISTS19
+y 5 ) * Q(y,z) ? -310
+[ Q(y,z) (30
+>= ] . < 2d EXISTS ? ; 5-3 CNT37
+"s" MATCHES TRUE EXISTS , 1.5 y AVG _4
+<| [15
+FALSE SUBSTRING17
+OR . MED FALSE 3h42
+x NEXT SINCE FRZ 5-3 . [ < MATCHES TRIGGER24
+PREV NOT = LET 3h CNT 3h32
+LETPAST f2i . TRIGGER s2r -3 LET42
+. SINCE - SUBSTRING ] SUM PREV P(x) FORALL12
+TRIGGER 5 3h27
+= PAST_ALWAYS MED MATCHES .27
+MIN SUM ] MIN MIN MED ) MIN19
+"s" MED IN * IN ? |28
+; ONCE P(x) - <= OR PREV ) *39
+FALSE - ONCE IMPLIES FALSE SUBSTRING IN26
+SINCE SUBSTRING 3h / . CNT34
+EXISTS MIN EXISTS UNTIL SUM EXISTS30
+IMPLIES SUBSTRING TRUE "s" AVG14
+<| TRUE EXISTS24
+MAX > < x-5 2d IN ( r"p"43
+PAST_ALWAYS 1.5 FALSE y FORALL . > * IN NOT35
+< RELEASE ONCE SUM CNT ONCE AVG CNT20
+|> EVENTUALLY IN MED41
+| IMPLIES PREV + P(x) OR ; MED "s" ALWAYS25
+TRIGGER ( ? = MAX SINCE |11
+TRUE CNT <-9
+s2r "s" .36
+_ > <- OR EQUIV y AND IMPLIES FORALL12
+> EVENTUALLY14
+FALSE FRZ ? <-19
+AND * EQUIV f2i MOD5
+f2i x7
+NOT f2i18
+RELEASE NEXT f2i /15
+CNT [ < <| <| _3
+AVG14
+FALSE ALWAYS ,66
+y EVENTUALLY PAST_ALWAYS IMPLIES EQUIV EXISTS FORALL Q(y,z) PREV -17
+s2r ] * ( IMPLIES25
+MOD ? ONCE r"p" -3 _ P(x)40
+EXISTS EQUIV PAST_ALWAYS y 2d <- x-5 1.530
+LET * CNT IN . LETPAST = ] x-518
+IN AVG ) MOD MAX 545
+IMPLIES PREV AVG IMPLIES ALWAYS Q(y,z) MOD <=10
+< <| , FRZ18
+> CNT ONCE RELEASE17
+? SUM 3h ? ) TRUE44
+, AVG ? RELEASE y NOT -3 PAST_ALWAYS LETPAST21
+NOT <- ( NEXT IMPLIES43
+IN RELEASE -3 + -3 ( -3 PAST_ALWAYS LETPAST42
++ OR <= 5 SUBSTRING P(x) [ 3h y EVENTUALLY25
+MOD 3h 5 5-3 - LETPAST 2d27
+Q(y,z) NEXT LET EXISTS P(x)11
+) NEXT = <=35
+| > LETPAST FRZ OR s2r * <- f2i LET31
+<= ALWAYS / < < , TRIGGER 5-3 ?39
+1.5 AVG . ; TRIGGER + ) >= IMPLIES NEXT3
+| _36
+MOD "s" SUBSTRING FORALL . 3h . >= _19
+AVG |> , OR 1.5 s2r14
+<- ] x MATCHES29
+5-3 NOT > s2r = y Q(y,z) PREV30
+y NOT s2r ) ALWAYS PAST_ALWAYS19
+CNT FALSE | * EQUIV34
+< _ Q(y,z) AND FRZ AVG | f2i MOD )26
+CNT EXISTS PAST_ALWAYS f2i7
+* SINCE30
+|> AND * SUM IN <= MATCHES MAX13
+1.5 AVG _ SUM39
+UNTIL ( . ; ALWAYS ? MATCHES MATCHES <=10
+>= TRIGGER30
+AND > r"p" > PREV PREV AVG FRZ34
+MAX AVG -3 [ PREV IMPLIES > EXISTS19
+>= PREV MED [ FALSE19
+FALSE + PAST_ALWAYS23
+x-5 ; 5-3 / "s" <- ( <=57
+P(x) EXISTS SINCE MAX UNTIL NEXT TRUE SUBSTRING [ MATCHES27
+( ) 5-3 ? NOT | . TRUE P(x)10
+MIN FORALL17
+|> >= 5 RELEASE _38
+<| Q(y,z) NEXT PAST_ALWAYS y LETPAST +20
+5 2d PAST_ALWAYS FRZ10
+NEXT = "s"28
+TRIGGER 3h s2r ] AVG PREV IN29
+IMPLIES TRIGGER MOD + x-5 x-57
+r"p" <|9
+<- ALWAYS7
+-3 2d +17
+/ EVENTUALLY IN .36
+TRUE FALSE FRZ 3h CNT FALSE OR UNTIL25
+AND TRUE PREV EQUIV - LET1
+>6
+? 3h <33
+|> 1.5 PREV f2i FALSE ] ? CNT ] y30
+MED NEXT PREV > ? = 2d NEXT <|2
+>=21
+1.5 -3 LET - MIN P(x)10
+<= LETPAST27
+< AND ( * UNTIL >= "s" ; 3h16
+5 FALSE TRUE , ;43
+EQUIV PAST_ALWAYS + FRZ UNTIL IN <= <- NEXT7
+FRZ ) |32
+| . TRIGGER "s" ] ) UNTIL IN LET12
+s2r LET r"p"51
+TRUE ALWAYS TRIGGER - TRIGGER _ LETPAST TRUE OR MED22
+IMPLIES TRUE ] UNTIL -21
+CNT FRZ AVG -3 |> * =12
+<| | y FRZ ,29
+RELEASE SUM OR <= MOD 5-3 x-57
+( -3 <-14
+OR 1.5 , x-5 (34
+AND y "s" MIN AND 1.5 P(x) IMPLIES37
+ONCE RELEASE <| Q(y,z) MOD . IN 5-3 /40
+MED x-5 EVENTUALLY / AND TRUE 5-3 <| s2r27
+SUBSTRING NOT LET NOT "s" ,3
+s2r4
+OR (18
+3h [ x / MATCHES |8
+3h MED y23
+<| / <- < |> MAX OR MOD2
+>=15
+NOT UNTIL FALSE55
+PAST_ALWAYS 5-3 EQUIV FALSE 1.5 FORALL FALSE <- MATCHES52
+NEXT = x CNT f2i MATCHES EXISTS AVG SUBSTRING EXISTS19
+EVENTUALLY NEXT MOD3
+/ 522
+UNTIL + FRZ -3 5 SUM >23
+y ONCE y 3h NEXT 2d - ?33
+. TRIGGER 2d OR / _ NOT * ONCE <|12
+SUM NEXT AND26
+UNTIL / AVG IMPLIES <= 1.538
+[ TRUE . 2d EVENTUALLY MATCHES FALSE +27
+"s" CNT IMPLIES <| > [ <= )20
+SUM ALWAYS ; OR PREV39
+MAX _ x-5 RELEASE / [ PAST_ALWAYS 5 "s"12
+Q(y,z) y s2r36
+"s" IN MATCHES f2i SINCE * ONCE P(x)44
+SUBSTRING 1.5 MOD Q(y,z) LET AVG FRZ "s" * <16
+< IMPLIES ) PREV14
+) FALSE ALWAYS35
+UNTIL FORALL x-5 . / / -3 ALWAYS |>50
+|> . LETPAST > |> <= SUBSTRING EVENTUALLY r"p" MOD45
+MIN MAX OR FRZ IN LETPAST | MAX FALSE IMPLIES33
+UNTIL EVENTUALLY -3 ] UNTIL ) MOD17
+? SUBSTRING SINCE52
+PAST_ALWAYS FALSE Q(y,z) MOD x-5 LET TRIGGER / | MOD38
+|> NEXT MATCHES MOD FORALL - P(x) 5 OR36
+| SUM IMPLIES MED - LET 5 _ SUM NEXT16
+? CNT ALWAYS SUM27
+RELEASE LETPAST SUM < + AND27
+5-3 ) OR P(x) _ MED ? FALSE50
+RELEASE EVENTUALLY RELEASE <= >= 5-3 ALWAYS >= LET25
+EQUIV SUBSTRING SINCE CNT33
+MAX OR ) TRUE EVENTUALLY , SUM -33
+AVG20
+5 FRZ TRIGGER >= MED31
+SUBSTRING SINCE MED _ TRIGGER )22
+SUBSTRING EQUIV -3 f2i23
+> MIN 3h PREV 5 CNT 1.532
+<| f2i < r"p" FORALL PREV >= > /31
+AND y Q(y,z) IMPLIES FRZ ALWAYS5
+, MIN15
+EQUIV = IMPLIES2
+>=33
+( f2i y <| 1.5 ] x-5 CNT 1.5 PREV11
+CNT -3 ONCE50
+x-5 f2i NEXT MATCHES y PAST_ALWAYS RELEASE TRUE 2d22
+( LET ONCE MOD * FALSE7
+LET y 53
+5 _19
+. AVG Q(y,z) < NEXT15
+x . _ * TRIGGER6
+3h MED44
+Q(y,z) x-5 OR [ SUBSTRING ALWAYS UNTIL EQUIV16
+PAST_ALWAYS 3h (24
+IN [ * TRUE / f2i ] TRUE3
+CNT15
+UNTIL OR -3 "s"8
+2d UNTIL36
+MIN _ LETPAST NOT FALSE | FORALL MED42
+AVG MOD MED | 5-3 <= FRZ <| ONCE SUBSTRING26
+) AND + RELEASE ] 3h AND -18
+SINCE < ( EQUIV OR1
+|16
+TRUE NEXT 3h < =9
+> <| TRUE
