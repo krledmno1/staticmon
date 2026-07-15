@@ -41,26 +41,27 @@ int main(int argc, char *argv[]) {
       ? std::nullopt
       : std::optional(absl::GetFlag(FLAGS_vpath));
 
-#ifdef ENABLE_SOCK_INTF
-  if (absl::GetFlag(FLAGS_use_socket)) {
-    driver.reset(new uds_monitor_driver(absl::GetFlag(FLAGS_socket_path),
-                                        std::move(vpath)));
-  }
-#endif
-
-#ifdef ENABLE_FILE_INPUT
-  if (!absl::GetFlag(FLAGS_use_socket)) {
-    driver.reset(
-      new file_monitor_driver(absl::GetFlag(FLAGS_log), std::move(vpath)));
-  }
-#endif
-  if (!driver) {
-    std::cerr << "staticmon: selected input mode not compiled in\n";
-    return 2;
-  }
-  // A malformed trace surfaces as a parse error (already reported with a caret
-  // by the parser); exit cleanly instead of aborting on an uncaught exception.
+  // Driver construction can fail (e.g. a missing log file or an unbindable
+  // socket); a malformed trace surfaces as a parse error. Handle both inside the
+  // try so we exit cleanly with a message instead of aborting on an uncaught
+  // exception.
   try {
+#ifdef ENABLE_SOCK_INTF
+    if (absl::GetFlag(FLAGS_use_socket)) {
+      driver.reset(new uds_monitor_driver(absl::GetFlag(FLAGS_socket_path),
+                                          std::move(vpath)));
+    }
+#endif
+#ifdef ENABLE_FILE_INPUT
+    if (!absl::GetFlag(FLAGS_use_socket)) {
+      driver.reset(
+        new file_monitor_driver(absl::GetFlag(FLAGS_log), std::move(vpath)));
+    }
+#endif
+    if (!driver) {
+      std::cerr << "staticmon: selected input mode not compiled in\n";
+      return 2;
+    }
     driver->do_monitor();
   } catch (const std::exception &e) {
     std::cerr << "staticmon: " << e.what() << "\n";
