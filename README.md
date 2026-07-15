@@ -26,9 +26,10 @@ image** — both are described below.
 - C++ standard library: static libstdc++ on Linux, or libc++ on macOS.
 - [Conan](https://conan.io) 2, CMake ≥ 3.22, Ninja.
 
-`./setup.sh` detects the host toolchain. Running the correctness tests
-additionally needs a native MonPoly (the `monpoly` binary, used as the oracle)
-and Python 3.
+`./setup.sh` detects the host toolchain. The correctness tests need only Python 3
+— the fixtures are committed, so **no MonPoly runs at test time**. The *live*
+randomized test additionally needs a user-provided VeriMon (`monpoly -verified`,
+via `$STATICMON_VERIMON`); regenerating fixtures needs MonPoly.
 
 ### Docker
 
@@ -137,31 +138,48 @@ rejected with a MonPoly-compatible message (exit code 1).
 
 ## Testing
 
-Build the test tools, then run via `ctest`:
+Build the test tools, then run via `ctest` **against the build directory** — from
+the repo root pass `--test-dir builddir` (or `cd builddir` first); a bare `ctest`
+in the repo root finds nothing:
 
 ```
 cmake --build builddir --target staticmon-headers parser_dump
-ctest --test-dir builddir              # everything (docker tests self-provision)
-ctest --test-dir builddir -L fast      # native-only: parser_diff + pipeline_diff
-ctest --test-dir builddir -L docker    # behavioral + monpoly_suite (needs docker)
+ctest --test-dir builddir                # everything
+ctest --test-dir builddir -L fast        # parser + frontend (instant)
+ctest --test-dir builddir -L monitor     # compiled-monitor verdicts (compiles per formula)
+STATICMON_VERIMON=/path/to/monpoly \
+  ctest --test-dir builddir -L live      # live randomized diff vs a user-provided VeriMon
 ```
+
+A test whose prerequisite is missing (Python 3; a configured native build or
+docker; `$STATICMON_VERIMON`) is reported **Skipped**, not failed.
+
+### Layout
+
+Tests live under `test/<module>/{components,methods}`, organized by *what* is
+tested (`parser`, `frontend`, `monitor`) and *how* (`fixture` = replay committed
+golden data; `live` = run an oracle now). `components/` holds the reusable parts
+(generator, oracle, comparator, coverage). Fixture methods replay committed
+outputs, so no MonPoly runs at test time — each method's `regen*.sh` regenerates
+its fixtures offline (the only place the oracle runs).
 
 ### Correctness
 
-Differential tests against the newest MonPoly / VeriMon (a test with a missing
-dependency — monpoly, docker, the corpus, python3 — is reported *Skipped*, not
-failed):
+- `parser`     *(fast)*  — the C++ parser vs the MonPoly parser (canonical ASTs).
+- `frontend`   *(fast)*  — `staticmon-headers` typing/monitorability vs
+                           `monpoly -sigout` / `monpoly -check`.
+- `monitor_generated`, `monitor_corpus` *(monitor)* — compiled-monitor verdicts
+   vs VeriMon (`monpoly -verified`), on random formulas and on MonPoly's own test
+   corpus respectively.
+- `monitor_live` *(live)* — a live randomized differential test: generates random
+   formulas + traces, compares staticmon to a user-provided VeriMon
+   (`$STATICMON_VERIMON`), and reports structural coverage of the fragment.
 
-- `parser_diff`   — C++ parser vs the MonPoly parser (canonical ASTs).
-- `pipeline_diff` — `staticmon-headers` typing/monitorability vs
-                    `monpoly -sigout` / `monpoly -check`.
-- `behavioral`    — compiled-monitor verdicts vs VeriMon (`monpoly -verified`) on
-                    random formulas + traces.
-- `monpoly_suite` — replays MonPoly's own test corpus and compares verdicts to
-                    VeriMon (288/288 in-fragment cases match).
-
-The `docker`-labeled tests compile each formula in a warm `staticmon-bench`
-container that `ctest` builds and starts automatically (a fixture).
+Monitor compilation is **native-first, docker fallback**: the `monitor` and
+`live` suites compile each formula with the native build tree when one is
+configured, else in a `staticmon-bench` container that `ctest` builds and starts
+automatically (the `bench_up`/`bench_down` fixtures — a no-op when native).
+Force a mode with `STATICMON_TEST_MODE=native|docker` (default `auto`).
 
 ### Performance
 
@@ -184,7 +202,8 @@ container that `ctest` builds and starts automatically (a fixture).
 - Traces are read in MonPoly format: `@<ts>` time-points delimited by `;` or by
   the next `@` (so the trailing `;` is optional), one or more per line, `@`/`;`
   inside quoted string arguments are respected. A malformed trace fails with a
-  parse error and a non-zero exit (not a silent patch or a crash).
+  parse error, and a missing/unreadable log with `cannot open log file …` — both
+  a non-zero exit, never a silent empty output or a crash.
 - Not yet supported by the front-end: regex operators (`MATCHF`/`MATCHP`),
   `FRZ`, `SUBSTRING`/`MATCHES`, and the string/date conversions (`i2s`, `s2i`,
   `f2s`, `s2f`, `r2s`, `s2r`, `DAY_OF_MONTH`, `MONTH`, `YEAR`, `FORMAT_DATE`).
