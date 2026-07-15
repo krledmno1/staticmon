@@ -8,6 +8,8 @@
 set -uo pipefail
 here="$(cd "$(dirname "$0")" && pwd)"
 SC=${1:?path to staticmon-headers}
+[ -x "$SC" ] \
+  || { echo "staticmon-headers not built (cmake --build builddir --target staticmon-headers); skipping" >&2; exit 77; }
 { [ -f "$here/expected.tsv" ] && [ -f "$here/sig" ]; } \
   || { echo "no fixtures (run regen.sh); skipping" >&2; exit 77; }
 WORK=$(mktemp -d); trap 'rm -rf "$WORK"' EXIT

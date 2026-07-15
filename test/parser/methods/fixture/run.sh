@@ -9,6 +9,8 @@
 set -uo pipefail
 here="$(cd "$(dirname "$0")" && pwd)"
 PARSER=${1:?path to parser_dump binary}
+[ -x "$PARSER" ] \
+  || { echo "parser_dump not built (cmake --build builddir --target parser_dump); skipping" >&2; exit 77; }
 command -v python3 >/dev/null 2>&1 || { echo "python3 not found; skipping" >&2; exit 77; }
 { [ -f "$here/frames.bin" ] && [ -f "$here/expected.txt" ]; } \
   || { echo "no fixtures (run regen.sh); skipping" >&2; exit 77; }
