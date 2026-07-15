@@ -61,7 +61,7 @@ CURATED = [
     "r(x,y) AND z = x + y", "r(x,y) AND z = x - y",
     "r(x,y) AND z = x * y",
     "r(x,y) AND z = x / y",          # tdiv (explicitmon bug: tplus)
-    "r(x,y) AND z = x mod y",        # tmod
+    "r(x,y) AND z = x MOD y",        # tmod (both staticmon and monpoly spell it MOD)
     "r(x,y) AND y = x / 2",
     "r(x,y) AND x = f2i(i2f(y))",    # f2i/i2f (explicitmon drops them)
     "p(x) AND y = x * 2 - 1",
@@ -70,31 +70,82 @@ CURATED = [
 for f in CURATED:
     emit(f)
 
-# small random monitorable formulas
+# small random monitorable formulas. Productions are chosen to keep the result
+# monitorable by construction (so the differential harness actually tests them)
+# while spanning the reachable fragment: conjunction variants (join/antijoin/
+# filter/assign), all interval shapes, aggregations (incl. over a temporal body),
+# LET/LETPAST/nested-LET, arithmetic (+ - * / MOD, f2i/i2f), string/float
+# constants, and negated-LHS since/until. rr-only operators (IMPLIES/EQUIV/FORALL/
+# ALWAYS/HISTORICALLY/PAST_ALWAYS) are deliberately NOT generated -- staticmon
+# rejects them without rr, so they would only be skipped.
 rng = random.Random(int(sys.argv[2]) if len(sys.argv) > 2 else 11)
 PREDS = ["p(x)", "q(x)", "r(x,y)", "s(x,y)", "r(y,z)"]
 
+# (guard, constraints monitorable given the guard's free variables)
+CONSTRAINED = [
+    ("r(x,y)", ["x = 5", "x < 3", "x = y", "x <= y", "NOT x = y",
+                "z = x + y", "z = x - y", "z = x * y", "z = x / y",
+                "z = x MOD y", "x = f2i(i2f(y))", "i2f(x) = 2.0", "y = x + 1"]),
+    ("p(x)", ["x = 5", "x < 3", "NOT x = 5", "i2f(x) = 2.0", "y = x", "y = x * 2"]),
+    ("a(u)", ['u = "aa"', 'NOT u = "bb"']),
+    ("b(x,u)", ['u = "bb"', "x = 5"]),
+]
+ANTIJOINS = ["(p(x) AND NOT q(x))", "(r(x,y) AND NOT q(y))",
+             "(r(x,y) AND NOT s(x,y))", "(b(x,u) AND NOT p(x))"]
+# guaranteed-monitorable since/until, including negated-LHS (fv(lhs) subset fv(rhs))
+SINCEUNTIL = [
+    "(p(x) SINCE q(x))", "(p(x) SINCE[0,5] q(x))", "(r(x,y) SINCE[1,4] s(x,y))",
+    "((NOT p(x)) SINCE q(x))", "((NOT p(x)) SINCE[0,4] q(x))",
+    "(p(x) UNTIL[0,5] q(x))", "(r(x,y) UNTIL[1,4] s(x,y))",
+    "((NOT p(x)) UNTIL[0,5] q(x))",
+]
+LETS = [
+    "LET U(x) = q(x) IN U(x) AND p(x)",
+    "LET U(x) = q(x) IN LET Z(x) = U(x) AND p(x) IN Z(x)",   # nested
+    "LET T(x,y) = r(x,y) IN ONCE[0,3] T(x,y)",
+    "LETPAST L(x) = p(x) OR (PREV L(x) AND q(x)) IN L(x)",
+]
+AGGS = [
+    "c <- CNT x; y r(x,y)", "c <- CNT x r(y,x)", "m <- SUM x; y r(y,x)",
+    "m <- MIN x r(y,x)", "m <- MAX x; y r(y,x)", "avg <- AVG x; y r(y,x)",
+    "md <- MED x r(y,x)", "c <- CNT x ONCE[0,3] p(x)",       # agg over temporal
+]
+
+
+def _interval(future):
+    # future operators must be bounded; past ones may be unbounded / one-sided
+    if future:
+        return rng.choice(["[0,3]", "[0,5]", "[1,4]", "[3,3]"])
+    return rng.choice(["", "[0,*)", "[0,5]", "[1,4]", "[3,3]", "[3,*)", "[0,10]"])
+
 
 def small(depth):
-    if depth <= 0 or rng.random() < 0.5:
-        return rng.choice(PREDS)
+    if depth <= 0 or rng.random() < 0.45:
+        r = rng.random()
+        if r < 0.6:
+            return rng.choice(PREDS)
+        if r < 0.8:
+            g, cs = rng.choice(CONSTRAINED)
+            return f"({g} AND {rng.choice(cs)})"
+        return rng.choice(ANTIJOINS)
     r = rng.random()
-    if r < 0.25:
+    if r < 0.14:
         return f"({small(depth-1)} AND {rng.choice(PREDS)})"
-    if r < 0.4:
-        c = rng.choice(["x = 5", "x < 3", "x = y", "z = x + 1", "z = x / 2"])
-        return f"({rng.choice(['r(x,y)','p(x)'])} AND {c})"
-    if r < 0.5:
-        return f"({rng.choice(['p(x)','r(x,y)'])} AND NOT {rng.choice(['q(x)','s(x,y)'])})"
-    if r < 0.65:
-        op = rng.choice(["ONCE", "EVENTUALLY", "PREV", "NEXT"])
-        iv = rng.choice(["[0,3]", "[0,5]", "[1,2]"])
-        return f"{op}{iv} {small(depth-1)}"
-    if r < 0.8:
-        op = rng.choice(["SINCE", "UNTIL"])
-        iv = rng.choice(["", "[0,3]", "[0,5]"])
-        return f"({rng.choice(PREDS)} {op}{iv} {small(depth-1)})"
-    return f"(EXISTS x. {small(depth-1)})"
+    if r < 0.26:
+        g, cs = rng.choice(CONSTRAINED)
+        return f"({g} AND {rng.choice(cs)})"
+    if r < 0.36:
+        return rng.choice(ANTIJOINS)
+    if r < 0.52:
+        op = rng.choice(["ONCE", "PREV", "EVENTUALLY", "NEXT"])
+        return f"{op}{_interval(op in ('EVENTUALLY', 'NEXT'))} {small(depth-1)}"
+    if r < 0.64:
+        return rng.choice(SINCEUNTIL)
+    if r < 0.76:
+        return f"(EXISTS {'x' if rng.random() < 0.6 else 'x, y'}. {small(depth-1)})"
+    if r < 0.88:
+        return rng.choice(LETS)
+    return rng.choice(AGGS)
 
 
 N = int(sys.argv[1]) if len(sys.argv) > 1 else 40

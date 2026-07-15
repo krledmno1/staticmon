@@ -169,7 +169,7 @@ def save_failure(faildir, kind, formula, sig, trace, sm_out, vm_out, diff=""):
 def report(counts, tested_formulas, out):
     print()
     print("random_diff: " + "  ".join("%s=%d" % (k, v) for k, v in counts.items()))
-    covered, uncovered, adj, _ = features.coverage(tested_formulas)
+    covered, uncovered, adj, _, _ = features.coverage(tested_formulas)
     n = len(features.CHECKLIST)
     print("structural coverage over %d tested formulas: %d/%d features (%.0f%%), "
           "%d nesting adjacencies"

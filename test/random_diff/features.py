@@ -23,7 +23,7 @@ KEYWORDS = {
     "ONCE", "EVENTUALLY", "HISTORICALLY", "ALWAYS", "PAST_ALWAYS",
     "PREV", "PREVIOUS", "NEXT", "SINCE", "UNTIL", "TRIGGER", "RELEASE",
     "LET", "LETPAST", "IN", "TRUE", "FALSE",
-    "CNT", "SUM", "MIN", "MAX", "AVG", "MED", "mod", "f2i", "i2f",
+    "CNT", "SUM", "MIN", "MAX", "AVG", "MED", "MOD", "mod", "f2i", "i2f",
 }
 UNARY_TEMPORAL = {"ONCE", "EVENTUALLY", "HISTORICALLY", "ALWAYS", "PAST_ALWAYS",
                   "PREV", "PREVIOUS", "NEXT"}
@@ -222,7 +222,7 @@ class Parser:
 
     def mul_term(self):
         left = self.unary_term()
-        while self.val() in ("*", "/", "mod"):
+        while self.val() in ("*", "/", "mod", "MOD"):
             op = self.next()[1]
             left = N("arith", op=op, l=left, r=self.unary_term())
         return left
@@ -414,7 +414,7 @@ def _term_feats(t, feats):
         feats.add("const:" + t.ty)
     elif t.kind == "arith":
         feats.add({"+": "term:plus", "-": "term:minus", "*": "term:mult",
-                   "/": "term:div", "mod": "term:mod"}[t.op])
+                   "/": "term:div", "mod": "term:mod", "MOD": "term:mod"}[t.op])
         _term_feats(t.l, feats)
         _term_feats(t.r, feats)
     elif t.kind == "func":
@@ -482,13 +482,19 @@ def features(formula):
 # --------------------------------------------------------------------------- #
 # Checklist + coverage report                                                 #
 # --------------------------------------------------------------------------- #
+# rr-gap: monitorable only after MonPoly's `rr` rewriting, which staticmon does
+# NOT do -- staticmon rejects these (their desugaring yields an unguarded
+# negation), so no staticmon-tested formula can ever contain them. Excluded from
+# the coverage denominator; reported informationally.
+RR_GAP = {"op:implies", "op:equiv", "op:forall",
+          "op:always", "op:historically", "op:past_always"}
+
 CHECKLIST = {
-    # operators
+    # operators (staticmon-reachable only; rr-gap ops are in RR_GAP above)
     "op:pred", "op:eq", "op:neq", "op:less", "op:leq",
-    "op:and", "op:or", "op:not", "op:implies", "op:equiv",
-    "op:exists", "op:forall",
+    "op:and", "op:or", "op:not",
+    "op:exists",
     "op:prev", "op:next", "op:once", "op:eventually",
-    "op:historically", "op:always", "op:past_always",
     "op:since", "op:until",
     "op:agg:CNT", "op:agg:SUM", "op:agg:MIN", "op:agg:MAX", "op:agg:AVG", "op:agg:MED",
     "op:let", "op:letpast",
@@ -520,18 +526,20 @@ def coverage(formulas):
         hit |= fe
         adj |= ad
     covered = hit & CHECKLIST
-    return covered, sorted(CHECKLIST - covered), sorted(adj), unparsed
+    return covered, sorted(CHECKLIST - covered), sorted(adj), unparsed, sorted(hit & RR_GAP)
 
 
 def main():
     path = sys.argv[1]
     formulas = [ln.strip() for ln in open(path)
                 if ln.strip() and not ln.strip().startswith("#")]
-    covered, uncovered, adj, unparsed = coverage(formulas)
+    covered, uncovered, adj, unparsed, rr = coverage(formulas)
     n = len(CHECKLIST)
     print("structural coverage: %d/%d checklist features (%.0f%%)"
           % (len(covered), n, 100.0 * len(covered) / n))
     print("distinct nesting adjacencies observed: %d" % len(adj))
+    if rr:
+        print("rr-gap features present (excluded from coverage): %s" % ", ".join(rr))
     if uncovered:
         print("uncovered (%d): %s" % (len(uncovered), ", ".join(uncovered)))
     if unparsed:
