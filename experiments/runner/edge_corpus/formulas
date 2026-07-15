@@ -1,0 +1,46 @@
+# Monitorability-fragment edge cases (all monitorable; validated with
+# `staticmon-headers -check`). Signature: edge_corpus/sig.
+# One formula per line; blank/`#` lines ignored.
+
+# A. Since/Until intervals + Next
+P(x) SINCE[0,*) Q(x)
+P(x) SINCE[5,10] Q(x)
+P(x) UNTIL[0,10] Q(x)
+P(x) UNTIL[5,10] Q(x)
+NEXT[0,10] P(x)
+
+# B. Negated-LHS since/until
+(NOT P(x)) SINCE[0,*) Q(x)
+(NOT P(x)) UNTIL[0,10] Q(x)
+
+# C. Conjunction variants (filter / assign)
+P(x) AND x < 0
+P(x) AND y = x
+
+# D. LET / LETPAST (simple-predicate subformulas)
+LET u(x) = P(x) IN u(x)
+LETPAST u(x) = P(x) OR PREV[0,*) u(x) IN u(x)
+
+# E. Aggregations, ungrouped
+r <- CNT x P(x)
+r <- MAX x P(x)
+r <- MIN x P(x)
+r <- MED x P(x)
+r <- AVG x P(x)
+r <- SUM x P(x)
+
+# F. Aggregations, grouped by g
+r <- CNT x; g S(g,x)
+r <- MAX x; g S(g,x)
+r <- MIN x; g S(g,x)
+r <- MED x; g S(g,x)
+r <- AVG x; g S(g,x)
+r <- SUM x; g S(g,x)
+
+# G. Aggregation over ONCE[0,*) (worst-case unbounded once)
+r <- CNT x ONCE[0,*) P(x)
+r <- MAX x ONCE[0,*) P(x)
+r <- MIN x ONCE[0,*) P(x)
+r <- MED x ONCE[0,*) P(x)
+r <- AVG x ONCE[0,*) P(x)
+r <- SUM x ONCE[0,*) P(x)
