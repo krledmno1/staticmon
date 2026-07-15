@@ -4,11 +4,20 @@
 # docker is unavailable or provisioning can't complete, so the dependent tests
 # are skipped rather than failed.
 set -uo pipefail
-command -v docker >/dev/null 2>&1 || { echo "docker not found; skipping docker tests" >&2; exit 77; }
-
-repo=$(cd "$(dirname "$0")/.." && pwd)
+repo=$(cd "$(dirname "$0")/../../.." && pwd)
 img=staticmon-bench
 ctr=smbench
+
+# Native-first: if a native staticmon build is configured (and docker isn't
+# explicitly forced via STATICMON_TEST_MODE=docker), the fixture replay compiles
+# natively -- no container needed, so this setup is a no-op.
+mode=${STATICMON_TEST_MODE:-auto}
+if [ "$mode" = native ] || { [ "$mode" = auto ] && [ -f "$repo/builddir/CMakeCache.txt" ]; }; then
+  echo "native build configured (mode=$mode); no docker bench container needed" >&2
+  exit 0
+fi
+
+command -v docker >/dev/null 2>&1 || { echo "docker not found; skipping docker tests" >&2; exit 77; }
 
 if ! docker image inspect "$img" >/dev/null 2>&1; then
   echo "building $img from docker/behavioral.Dockerfile (first run) ..." >&2

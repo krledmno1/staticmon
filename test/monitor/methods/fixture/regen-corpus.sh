@@ -4,7 +4,7 @@
 # OFFLINE maintainer tool -- it needs monpoly (VeriMon) and the corpus; nothing
 # in the ctest flow runs it. It extracts (sig, formula, trace) cases, keeps the
 # ones both VeriMon and staticmon accept, and writes
-#   test/monpoly_suite/cases/<id>/{sig, formula, trace, expected}
+#   monitor/methods/fixture/cases-corpus/<id>/{sig, formula, trace, expected}
 # where `expected` is VeriMon's verdict stream. run_suite.sh then replays these
 # with no monpoly / corpus dependency.
 #
@@ -14,7 +14,7 @@ here="$(cd "$(dirname "$0")" && pwd)"
 SC=${1:?path to staticmon-headers binary}
 TESTS=${2:-$HOME/Data/Projects/monpoly-develop/tests}
 MP=${MONPOLY:-$(command -v monpoly 2>/dev/null || ls "$HOME"/.opam/*/bin/monpoly 2>/dev/null | head -1)}
-CASES="$here/cases"
+CASES="$here/cases-corpus"
 
 { [ -n "$MP" ] && [ -x "$MP" ]; } || { echo "monpoly not found (set \$MONPOLY)" >&2; exit 1; }
 [ -d "$TESTS" ] || { echo "corpus not found: $TESTS (arg 2)" >&2; exit 1; }

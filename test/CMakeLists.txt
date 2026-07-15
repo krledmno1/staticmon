@@ -1,46 +1,46 @@
-# Behavioral / differential tests, driven by the shell harnesses. The fixture
-# suites' oracle outputs (VeriMon verdicts, MonPoly typing/monitorability, parser
-# ASTs) are committed, so those run no monpoly at test time -- fixtures are
-# (re)generated offline by each suite's regen.sh. The `random` suite is the one
-# exception: a LIVE randomized differential test against a user-provided VeriMon
-# binary (no monpoly dependency is committed).
+# Correctness tests, organized by tested module x testing method:
+#   parser/    -- the C++ formula parser                      (fixture)
+#   frontend/  -- staticmon-headers typing + monitorability   (fixture)
+#   monitor/   -- the compiled monitor's verdicts vs VeriMon  (fixture + live)
+# Each module has components/ (generator, oracle, comparator, ...) and methods/
+# (fixture, live). Fixture methods replay committed golden data -- no monpoly at
+# test time; regenerated offline by each method's regen*.sh. The monitor's live
+# method runs a user-provided VeriMon. Monitor compilation is NATIVE-first
+# (staticmon-impl against the builddir), docker fallback (smbench container);
+# force with STATICMON_TEST_MODE=native|docker.
 #
-#   ctest --preset conan-release             # everything (docker tests self-provision)
-#   ctest --preset conan-release -L fast     # native-only: parser_diff + pipeline_diff
-#   ctest --preset conan-release -L docker   # behavioral + monpoly_suite (needs docker)
-#   STATICMON_VERIMON=/path/to/monpoly ctest --preset conan-release -L random
+#   ctest -L fast                                        # parser + frontend (instant)
+#   ctest -L monitor                                     # monitor fixture replay (compiles per formula)
+#   STATICMON_VERIMON=/path/to/monpoly ctest -L live     # live random diff
 #
-# Each harness exits 77 -- reported as "Skipped", not "Failed" (SKIP_RETURN_CODE
-# 77 below) -- when a runtime prerequisite is missing: docker (the bench
-# container) for the docker suites, python3, or (random) $STATICMON_VERIMON.
+# Tests exit 77 ("Skipped", not "Failed"; SKIP_RETURN_CODE 77) when a prerequisite
+# is missing: python3; a configured native builddir or the smbench container; or
+# $STATICMON_VERIMON.
 set(TD "${CMAKE_CURRENT_SOURCE_DIR}")
 
-# ---- fast (native) : replay committed fixtures against a freshly built tool --
-add_test(NAME parser_diff
-         COMMAND bash "${TD}/parser_diff/run_diff.sh" "$<TARGET_FILE:parser_dump>")
-add_test(NAME pipeline_diff
-         COMMAND bash "${TD}/pipeline_diff/run_check_diff.sh" "$<TARGET_FILE:staticmon-headers>")
-set_tests_properties(parser_diff pipeline_diff
-                     PROPERTIES LABELS fast SKIP_RETURN_CODE 77)
+# ---- fast : replay committed fixtures against a freshly built tool -----------
+add_test(NAME parser
+         COMMAND bash "${TD}/parser/methods/fixture/run.sh" "$<TARGET_FILE:parser_dump>")
+add_test(NAME frontend
+         COMMAND bash "${TD}/frontend/methods/fixture/run.sh" "$<TARGET_FILE:staticmon-headers>")
+set_tests_properties(parser frontend PROPERTIES LABELS fast SKIP_RETURN_CODE 77)
 
-# ---- bench container fixture : build behavioral image + run smbench ----------
-add_test(NAME bench_up   COMMAND bash "${TD}/ctest-bench-up.sh")
-add_test(NAME bench_down COMMAND bash "${TD}/ctest-bench-down.sh")
-set_tests_properties(bench_up   PROPERTIES FIXTURES_SETUP   bench LABELS docker SKIP_RETURN_CODE 77)
-set_tests_properties(bench_down PROPERTIES FIXTURES_CLEANUP bench LABELS docker)
+# ---- monitor fixture : compiled-monitor verdicts vs frozen VeriMon ----------
+# bench_up is native-aware: a no-op when a native build is configured, else it
+# builds+starts the smbench container (the docker fallback for compilation).
+add_test(NAME bench_up   COMMAND bash "${TD}/monitor/components/ctest-bench-up.sh")
+add_test(NAME bench_down COMMAND bash "${TD}/monitor/components/ctest-bench-down.sh")
+set_tests_properties(bench_up   PROPERTIES FIXTURES_SETUP   bench LABELS monitor SKIP_RETURN_CODE 77)
+set_tests_properties(bench_down PROPERTIES FIXTURES_CLEANUP bench LABELS monitor)
 
-# ---- docker : compiled-monitor verdicts vs VeriMon, per formula --------------
-add_test(NAME behavioral
-         COMMAND bash "${TD}/behavioral/run_behavioral.sh" "$<TARGET_FILE:staticmon-headers>")
-add_test(NAME monpoly_suite
-         COMMAND bash "${TD}/monpoly_suite/run_suite.sh" "$<TARGET_FILE:staticmon-headers>")
-set_tests_properties(behavioral monpoly_suite
-                     PROPERTIES LABELS docker FIXTURES_REQUIRED bench SKIP_RETURN_CODE 77)
+add_test(NAME monitor_generated
+         COMMAND bash "${TD}/monitor/methods/fixture/run.sh" cases-generated "$<TARGET_FILE:staticmon-headers>")
+add_test(NAME monitor_corpus
+         COMMAND bash "${TD}/monitor/methods/fixture/run.sh" cases-corpus "$<TARGET_FILE:staticmon-headers>")
+set_tests_properties(monitor_generated monitor_corpus
+                     PROPERTIES LABELS monitor FIXTURES_REQUIRED bench SKIP_RETURN_CODE 77)
 
-# ---- random : live randomized differential test vs a USER-PROVIDED VeriMon ----
-# Generates random formulas + traces and compares staticmon to VeriMon live.
-# Skips unless $STATICMON_VERIMON points at a monpoly build (run with -verified);
-# the repo keeps no monpoly dependency. Native staticmon-impl compile (cached).
-add_test(NAME random_diff
-         COMMAND bash "${TD}/random_diff/run.sh" "$<TARGET_FILE:staticmon-headers>")
-set_tests_properties(random_diff PROPERTIES LABELS random SKIP_RETURN_CODE 77)
+# ---- monitor live : random formulas vs a USER-PROVIDED VeriMon --------------
+add_test(NAME monitor_live
+         COMMAND bash "${TD}/monitor/methods/live/run.sh" "$<TARGET_FILE:staticmon-headers>")
+set_tests_properties(monitor_live PROPERTIES LABELS live SKIP_RETURN_CODE 77)

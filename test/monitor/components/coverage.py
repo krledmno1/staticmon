@@ -9,7 +9,7 @@ then "what fraction of the checklist did the generated corpus hit, and which
 features are still uncovered". (Front-end and runtime coverage are later steps;
 structural coverage maps closely to front-end AST-node handling.)
 
-CLI: features.py <formulas-file> [sig-line-prefixed? no] -> prints a coverage
+CLI: coverage.py <formulas-file> [sig-line-prefixed? no] -> prints a coverage
 report over the non-comment lines.
 """
 import re

@@ -10,14 +10,14 @@ here="$(cd "$(dirname "$0")" && pwd)"
 SC=${1:?path to staticmon-headers binary}
 N=${2:-100}; SEED=${3:-11}; TRACES=${4:-2}; NTP=${5:-40}
 MP=${MONPOLY:-$(command -v monpoly 2>/dev/null || ls "$HOME"/.opam/*/bin/monpoly 2>/dev/null | head -1)}
-CASES="$here/cases"
+CASES="$here/cases-generated"
 
 { [ -n "$MP" ] && [ -x "$MP" ]; } || { echo "monpoly not found (set \$MONPOLY)" >&2; exit 1; }
 [ -x "$SC" ] || { echo "staticmon-headers not found: $SC" >&2; exit 1; }
 
 WORK=$(mktemp -d); trap 'rm -rf "$WORK"' EXIT
 mkdir -p "$WORK/hdr"
-SIG=$(python3 "$here/gen_bench.py" "$N" "$SEED" 2>&1 >"$WORK/formulas.txt"); SIG=${SIG#SIG }
+SIG=$(python3 "$here/../../components/generator/gen_bench.py" "$N" "$SEED" 2>&1 >"$WORK/formulas.txt"); SIG=${SIG#SIG }
 echo "$SIG" > "$WORK/s.sig"
 
 rm -rf "$CASES"; mkdir -p "$CASES"
@@ -33,7 +33,7 @@ while IFS= read -r formula; do
   "$SC" -sig "$WORK/s.sig" -formula "$WORK/f.mfotl" -prefix "$WORK/hdr" >/dev/null 2>&1 \
     || { rejected=$((rejected+1)); continue; }
   for ((t=0; t<TRACES; t++)); do
-    python3 "$here/gen_trace.py" "$SIG" "$NTP" "$((SEED*100 + t))" > "$WORK/t.log"
+    python3 "$here/../../components/generator/gen_trace.py" "$SIG" "$NTP" "$((SEED*100 + t))" > "$WORK/t.log"
     d="$CASES/$(printf 'f%03d_t%d' "$fidx" "$t")"; mkdir -p "$d"
     cp "$WORK/s.sig" "$d/sig"; cp "$WORK/f.mfotl" "$d/formula"; cp "$WORK/t.log" "$d/trace"
     $MP -verified -sig "$WORK/s.sig" -formula "$WORK/f.mfotl" -log "$WORK/t.log" > "$d/expected" 2>/dev/null

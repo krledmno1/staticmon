@@ -6,7 +6,7 @@ Row order within a time point is irrelevant (both tools sort, but we
 normalise anyway); float fields are compared numerically to absorb
 formatting differences (staticmon uses %.5e, monpoly its own format).
 
-Usage: compare_verdicts.py file_a file_b   -> exit 0 if equal, else prints diff.
+Usage: comparator.py file_a file_b   -> exit 0 if equal, else prints diff.
 """
 import re
 import sys

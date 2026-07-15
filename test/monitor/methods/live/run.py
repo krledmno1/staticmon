@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Randomized differential correctness test: staticmon vs VeriMon (live oracle).
 
-Generates random formulas (test/behavioral/gen_bench.py) + traces
-(gen_trace.py), keeps the ones BOTH staticmon and VeriMon accept as monitorable,
+Generates random formulas (the generator component (gen_bench.py)) + traces
+(generator/gen_trace.py), keeps the ones BOTH staticmon and VeriMon accept as monitorable,
 compiles the staticmon monitor (cached via scripts/staticmon-impl), runs both on
 each trace, and flags any verdict mismatch (compare_verdicts.py). Reports the
 structural coverage (features.py) the generated corpus achieved.
@@ -21,17 +21,19 @@ import subprocess
 import sys
 import tempfile
 
+# test/monitor/methods/live/  ->  repo root is four levels up; shared components
+# live under test/monitor/components/.
 HERE = os.path.dirname(os.path.abspath(__file__))
-REPO = os.path.abspath(os.path.join(HERE, "..", ".."))
-BEHAV = os.path.join(REPO, "test", "behavioral")
-GEN_BENCH = os.path.join(BEHAV, "gen_bench.py")
-GEN_TRACE = os.path.join(BEHAV, "gen_trace.py")
-COMPARE = os.path.join(BEHAV, "compare_verdicts.py")
+REPO = os.path.abspath(os.path.join(HERE, "..", "..", "..", ".."))
+COMPONENTS = os.path.join(HERE, "..", "..", "components")
+GEN_BENCH = os.path.join(COMPONENTS, "generator", "gen_bench.py")
+GEN_TRACE = os.path.join(COMPONENTS, "generator", "gen_trace.py")
+COMPARE = os.path.join(COMPONENTS, "comparator.py")
 IMPL = os.path.join(REPO, "scripts", "staticmon-impl")
 HEADERS = os.path.join(REPO, "builddir", "bin", "staticmon-headers")
 
-sys.path.insert(0, HERE)
-import features  # noqa: E402
+sys.path.insert(0, COMPONENTS)
+import coverage as features  # noqa: E402  (structural-coverage component)
 
 
 def run(cmd, timeout=None, **kw):

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Corpus generator for differential-testing staticmon's C++ formula parser
-against the MonPoly oracle (test/parser_oracle).
+against the MonPoly oracle (parser/components/oracle).
 
 Emits length-prefixed frames (decimal byte count line + bytes) on stdout —
 the shared stdin protocol of parser_dump and oracle.exe. Deliberately

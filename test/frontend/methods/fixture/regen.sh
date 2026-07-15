@@ -2,7 +2,7 @@
 # Regenerate the pipeline_diff fixtures: for a fixed set of generated formulas,
 # store the free-variable types (-sigout, classified) and monitorability verdict
 # (-check: OK/NOT/ERR) that monpoly and staticmon AGREE on. OFFLINE maintainer
-# tool -- needs monpoly. Writes test/pipeline_diff/{sig, expected.tsv}.
+# tool -- needs monpoly. Writes frontend/methods/fixture/{sig, expected.tsv}.
 #
 # The documented rr completeness gap (monpoly OK via rewriting, staticmon NOT) is
 # not stored (recorded to stderr). Any *other* disagreement is a real bug and is
@@ -18,7 +18,7 @@ MP=${MONPOLY:-$(command -v monpoly 2>/dev/null || ls "$HOME"/.opam/*/bin/monpoly
 [ -x "$SC" ] || { echo "staticmon-headers not found: $SC" >&2; exit 1; }
 
 WORK=$(mktemp -d); trap 'rm -rf "$WORK"' EXIT
-SIG=$(python3 "$here/gen_formulas.py" "$N" "$SEED" 2>&1 >"$WORK/formulas.txt")
+SIG=$(python3 "$here/../../components/generator/gen_formulas.py" "$N" "$SEED" 2>&1 >"$WORK/formulas.txt")
 printf '%s\n' "$SIG" > "$here/sig"
 
 sig_cls() { if grep -q "Fatal error" <<<"$1"; then echo "ERR"; else head -1 <<<"$1"; fi; }
