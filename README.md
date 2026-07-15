@@ -195,6 +195,17 @@ Verdicts print as `@<ts> (time point <tp>): (<tuple>) ...`, one line per
 satisfied timepoint. Redirect them with `-verdicts FILE`; read events from a
 Unix socket instead of a trace with `-socket [PATH]`.
 
+Add `-verbose` (like `monpoly -verbose`) to announce progress: the analyzed
+formula and its free-variable sequence are printed **to stderr** before
+monitoring, and each time point is announced (`At time point <tp>:`) **to
+stdout** as it is read, interleaved with the verdicts. It works on the
+all-in-one form and on the `compile`/`run` subcommands (`compile` emits the
+header, `run` announces the time points):
+
+```
+staticmon -sig bla.sig -formula bla.mfotl -log trace.log -verbose
+```
+
 The first run for a formula compiles the monitor (a few seconds); every later
 run is an instant cache hit. Binaries are cached under `~/.cache/staticmon`
 (override with `$STATICMON_CACHE`), or, in Docker, in a `staticmon-cache` volume
@@ -295,3 +306,11 @@ Force a mode with `STATICMON_TEST_MODE=native|docker` (default `auto`).
 - The native monitorability check does not yet apply MonPoly's full rewriting
   (`rr`) pass, so it can be slightly more conservative than `monpoly -check`
   (sound, never unsound).
+- `-verbose` mirrors `monpoly -verbose`'s stream split (header on stderr,
+  `At time point <tp>:` and verdicts on stdout) and its time-point sequence
+  (including the extra end-of-log time point for bounded-future formulas). Two
+  deliberate differences remain: the header echoes the *input* formula rather
+  than a re-serialized AST (staticmon has no formula pretty-printer), and the
+  verdict lines keep staticmon's canonical format (`(1) (3)`, empty verdicts
+  omitted) instead of `-verbose`'s `((1),(3))` / explicit `()` — the same
+  verdicts every fixture and the differential comparator already rely on.

@@ -12,8 +12,10 @@
 class file_monitor_driver : public monitor_driver {
 public:
   file_monitor_driver(const std::filesystem::path &log_path,
-                      std::optional<std::string> verdict_path)
-      : log_(std::ifstream(log_path)), monitor_(verdict_printer(verdict_path)) {
+                      std::optional<std::string> verdict_path,
+                      bool verbose = false)
+      : log_(std::ifstream(log_path)),
+        monitor_(verdict_printer(verdict_path), verbose) {
     // A missing/unreadable log otherwise reads as an empty trace (no verdicts,
     // no error) -- surface it instead.
     if (!log_.is_open())

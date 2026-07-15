@@ -8,8 +8,10 @@
 class uds_monitor_driver : public monitor_driver {
 public:
   uds_monitor_driver(const std::string &socket_path,
-                     std::optional<std::string> verdict_path)
-      : monitor_(verdict_printer(std::move(verdict_path))), net_(socket_path) {}
+                     std::optional<std::string> verdict_path,
+                     bool verbose = false)
+      : monitor_(verdict_printer(std::move(verdict_path)), verbose),
+        net_(socket_path) {}
   ~uds_monitor_driver() noexcept override = default;
   void do_monitor() override {
 

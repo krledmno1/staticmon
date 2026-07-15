@@ -63,7 +63,7 @@ static const char *tcst_name(compile::tcst t) {
 
 int main(int argc, char **argv) {
   std::string sig_path, formula_path, prefix;
-  bool mode_check = false, mode_sigout = false;
+  bool mode_check = false, mode_sigout = false, mode_verbose = false;
   for (int i = 1; i < argc; ++i) {
     std::string a = argv[i];
     auto next = [&]() { return (i + 1 < argc) ? argv[++i] : ""; };
@@ -77,12 +77,14 @@ int main(int argc, char **argv) {
       mode_check = true;
     else if (a == "-sigout")
       mode_sigout = true;
+    else if (a == "-verbose")
+      mode_verbose = true;
     else if (a == "-explicitmon")
       continue;
   }
   if (sig_path.empty() || formula_path.empty()) {
     std::cerr << "usage: staticmon-headers -sig S -formula F "
-                 "[-prefix DIR | -check | -sigout]\n";
+                 "[-prefix DIR | -check | -sigout | -verbose]\n";
     return 2;
   }
 
@@ -113,7 +115,8 @@ int main(int argc, char **argv) {
     type_sig.push_back({{p.name, p.attrs.size()}, std::move(ttys)});
   }
 
-  auto f_res = parser::formula_parser::parse(read_file(formula_path));
+  std::string formula_text = read_file(formula_path);
+  auto f_res = parser::formula_parser::parse(formula_text);
   if (auto *err = std::get_if<parser::parse_error>(&f_res)) {
     std::cerr << "formula parse error: " << err->message << " at " << err->pos
               << "\n";
@@ -121,6 +124,24 @@ int main(int argc, char **argv) {
   }
   const auto &formula = std::get<parser::formula>(f_res);
   auto orig_free = compile::free_vars(formula);
+
+  // -verbose: the header monpoly -verbose prints before monitoring. Emitted
+  // here (before typing/monitorability), so it is produced for any parsable
+  // formula, as monpoly does. staticmon has no formula pretty-printer, so we
+  // echo the input formula (trimmed) rather than a re-serialized AST; the free
+  // variables are printed in the same order as -sigout.
+  if (mode_verbose) {
+    auto l = formula_text.find_first_not_of(" \t\r\n");
+    auto r = formula_text.find_last_not_of(" \t\r\n");
+    std::string trimmed =
+      l == std::string::npos ? "" : formula_text.substr(l, r - l + 1);
+    std::cout << "The analyzed formula is:\n  " << trimmed << "\n";
+    std::cout << "The sequence of free variables is: (";
+    for (std::size_t i = 0; i < orig_free.size(); ++i)
+      std::cout << (i ? "," : "") << orig_free[i];
+    std::cout << ")\n";
+    return 0;
+  }
 
   // Order matches monpoly's check_formula: check_wff, then type inference.
   // Well-formedness (intervals / bounded future / LET params).

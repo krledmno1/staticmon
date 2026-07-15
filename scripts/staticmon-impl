@@ -1,22 +1,26 @@
 #!/usr/bin/env bash
 # staticmon-impl: the staticmon dispatcher (native). Subcommands:
 #
-#   staticmon compile -sig S -formula F [-keep P] [-no-cache] [-cache D] [-quiet]
+#   staticmon compile -sig S -formula F [-keep P] [-no-cache] [-cache D] \
+#             [-quiet] [-verbose]
 #       Turn (signature, formula) into a monitor binary. Prints the cached
 #       binary's path (or copies it to P with -keep). Cached by a hash of the
-#       generated headers, namespaced by a build fingerprint.
+#       generated headers, namespaced by a build fingerprint. -verbose also
+#       prints the analyzed formula + free-variable sequence (as monpoly does).
 #
-#   staticmon run -monitor M [-log FILE | -socket [PATH]] [-verdicts FILE]
+#   staticmon run -monitor M [-log FILE | -socket [PATH]] [-verdicts FILE] \
+#             [-verbose]
 #       Run a compiled monitor. -log/-socket are mutually exclusive; if both are
 #       omitted the trace is read from standard input. Verdicts go to stdout
-#       (or -verdicts FILE).
+#       (or -verdicts FILE). -verbose announces each time point as it is read.
 #
 #   staticmon info -sig S -formula F
 #       Print the formula's free-variable types and monitorability (no build).
 #
 #   staticmon -sig S -formula F [-log FILE | -socket [PATH]] [-verdicts FILE] \
-#             [-keep P] [-no-cache] [-cache D] [-quiet]
-#       All-in-one (compile then run) -- feels like a normal monitor.
+#             [-keep P] [-no-cache] [-cache D] [-quiet] [-verbose]
+#       All-in-one (compile then run) -- feels like a normal monitor. -verbose
+#       prints the header (compile) then announces each time point (run).
 #
 # Environment: STATICMON_HOME (build tree; default: repo root), STATICMON_CACHE
 # (default: ~/.cache/staticmon), STATICMON_BUILDDIR, STATICMON_HEADERS.
@@ -34,6 +38,17 @@ cleanup() { [ -n "$TMP" ] && rm -rf "$TMP"; [ -n "$LOCK" ] && rm -rf "$LOCK"; re
 trap cleanup EXIT INT TERM
 
 die() { echo "staticmon: $*" >&2; exit 2; }
+
+# Print the header monpoly -verbose prints before monitoring (analyzed formula +
+# free-variable sequence). Routed to stderr to match monpoly (its header goes to
+# stderr, verdicts to stdout) and to keep compile's stdout -- the binary path --
+# clean. Shown only on success, so a parse error is reported once (by the
+# compile step below), not twice.
+emit_header() {
+  local h
+  h=$("$HEADERS_BIN" -sig "$1" -formula "$2" -verbose 2>&1) && printf '%s\n' "$h" >&2
+  return 0
+}
 # read stdin, print the first $1 hex chars of its sha256 (sha256sum on Linux,
 # shasum on macOS).
 sha() { { if command -v sha256sum >/dev/null 2>&1; then sha256sum; else shasum -a 256; fi; } | cut -c1-"$1"; }
@@ -79,7 +94,7 @@ release_lock() { rm -rf "$LOCK"; LOCK=""; }
 # ============================ subcommands ============================
 
 do_compile() {
-  local sig="" formula="" keep="" no_cache=0 quiet=0 container=""
+  local sig="" formula="" keep="" no_cache=0 quiet=0 container="" verbose=0
   while [ $# -gt 0 ]; do case "$1" in
     -sig) sig=$2; shift 2;;
     -formula) formula=$2; shift 2;;
@@ -88,6 +103,7 @@ do_compile() {
     -no-cache) no_cache=1; shift;;
     -cache) CACHE=$2; shift 2;;
     -quiet) quiet=1; shift;;
+    -verbose) verbose=1; shift;;
     *) die "compile: unknown option '$1'";;
   esac; done
   local chome="${STATICMON_CONTAINER_HOME:-/opt/staticmon}"
@@ -96,6 +112,9 @@ do_compile() {
   [ -f "$formula" ] || die "formula not found: $formula"
   [ -x "$HEADERS_BIN" ] || die "front-end not built: $HEADERS_BIN (build 'staticmon-headers' first)"
   log() { [ "$quiet" -eq 1 ] || echo "$@" >&2; }
+  # -verbose: print the analyzed-formula header (as monpoly -verbose does), to
+  # stderr, so this function's stdout stays the binary path for do_all's capture.
+  [ "$verbose" -eq 1 ] && emit_header "$sig" "$formula"
 
   TMP=$(mktemp -d "${TMPDIR:-/tmp}/staticmon.XXXXXX")
   # 1. Front-end: generate + validate. Rejection (non-monitorable/ill-typed) -> exit 1.
@@ -156,13 +175,14 @@ do_compile() {
 }
 
 do_run() {
-  local monitor="" log_in="" socket="" socket_set=0 verdicts=""
+  local monitor="" log_in="" socket="" socket_set=0 verdicts="" verbose=0
   while [ $# -gt 0 ]; do case "$1" in
     -monitor) monitor=$2; shift 2;;
     -log) log_in=$2; shift 2;;
     -socket) socket_set=1; shift
              case "${1:-}" in ""|-*) socket="cppmon_uds";; *) socket=$1; shift;; esac;;
     -verdicts) verdicts=$2; shift 2;;
+    -verbose) verbose=1; shift;;
     *) die "run: unknown option '$1'";;
   esac; done
   [ -n "$monitor" ] || die "run requires -monitor MONITOR"
@@ -172,6 +192,7 @@ do_run() {
   if [ "$socket_set" -eq 1 ]; then args=(--use_socket --socket_path "$socket")
   else args=(--log "${log_in:-/dev/stdin}"); fi
   [ -n "$verdicts" ] && args+=(--vpath "$verdicts")
+  [ "$verbose" -eq 1 ] && args+=(--verbose)   # announce each time point (monpoly -verbose)
   exec "$monitor" "${args[@]}"
 }
 
@@ -192,7 +213,7 @@ do_info() {
 
 do_all() {  # union of compile + run; feels like a monitor
   local sig="" formula="" log_in="" socket_args=() socket_set=0 verdicts="" \
-        keep="" no_cache=0 quiet=0
+        keep="" no_cache=0 quiet=0 verbose=0
   while [ $# -gt 0 ]; do case "$1" in
     -sig) sig=$2; shift 2;;
     -formula) formula=$2; shift 2;;
@@ -204,6 +225,7 @@ do_all() {  # union of compile + run; feels like a monitor
     -no-cache) no_cache=1; shift;;
     -cache) CACHE=$2; shift 2;;
     -quiet) quiet=1; shift;;
+    -verbose) verbose=1; shift;;
     *) die "unknown option '$1'";;
   esac; done
   [ -n "$sig" ] && [ -n "$formula" ] || die "requires -sig SIG and -formula FORMULA"
@@ -213,6 +235,9 @@ do_all() {  # union of compile + run; feels like a monitor
   [ -n "$keep" ]      && cargs+=(-keep "$keep")
   [ "$no_cache" -eq 1 ] && cargs+=(-no-cache)
   [ "$quiet" -eq 1 ]    && cargs+=(-quiet)
+  # -verbose prints the header (to stderr); do_compile's stdout stays the binary
+  # path, so the command substitution below is unaffected.
+  [ "$verbose" -eq 1 ] && cargs+=(-verbose)
   local bin
   bin=$(do_compile "${cargs[@]}")            # separate decl/assign so set -e sees the status
 
@@ -220,6 +245,7 @@ do_all() {  # union of compile + run; feels like a monitor
   if [ "$socket_set" -eq 1 ]; then rargs+=("${socket_args[@]}")
   elif [ -n "$log_in" ];      then rargs+=(-log "$log_in"); fi
   [ -n "$verdicts" ] && rargs+=(-verdicts "$verdicts")
+  [ "$verbose" -eq 1 ] && rargs+=(-verbose)
   do_run "${rargs[@]}"
 }
 

@@ -74,6 +74,11 @@ public:
       ofile_.emplace(fmt::output_file(std::move(*file_name)));
   }
 
+  // Verbose progress line, emitted as each time point is read (matches
+  // `monpoly -verbose`). Routed through the same sink as verdicts, so it
+  // follows `-verdicts FILE` too.
+  void print_time_point(std::size_t tp) { print("At time point {}:\n", tp); }
+
   template<typename... Args>
   void print_verdict(std::size_t ts, std::size_t tp,
                      std::vector<std::tuple<Args...>> &tbl) {

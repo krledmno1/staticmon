@@ -16,7 +16,8 @@ struct monitor {
   using ResT = typename table_util::reorder_info<L, free_variables, T>::ResT;
   using reorder_mask = table_util::get_reorder_mask<L, free_variables>;
 
-  monitor(verdict_printer printer) : printer_(std::move(printer)) {}
+  monitor(verdict_printer printer, bool verbose = false)
+      : printer_(std::move(printer)), verbose_(verbose) {}
 
   std::vector<ResT> make_verdicts(rec_tab_t &tab) {
     std::vector<ResT> verdicts;
@@ -28,6 +29,11 @@ struct monitor {
 
   void step(database &db, const ts_list &ts) {
     for (std::size_t t : ts) {
+      // `monpoly -verbose` announces each time point as it is read. The
+      // end-of-log flush (t == MAXIMUM_TIMESTAMP) is not a real time point, so
+      // last_step() decides whether to announce it (see below).
+      if (verbose_ && t < MAXIMUM_TIMESTAMP)
+        printer_.print_time_point(max_tp_);
       tp_ts_map_.emplace(max_tp_, t);
       max_tp_++;
     }
@@ -50,6 +56,13 @@ struct monitor {
   }
 
   void last_step() {
+    // For bounded-future formulas monpoly injects a final max-timestamp time
+    // point to close open windows, and `-verbose` announces it; for
+    // past/present formulas nothing is pending and it announces nothing.
+    // curr_tp_ < max_tp_ means some ingested time points are still unflushed,
+    // which is exactly monpoly's inject-or-not condition.
+    if (verbose_ && curr_tp_ < max_tp_)
+      printer_.print_time_point(max_tp_);
     database db;
     step(db, make_vector(static_cast<std::size_t>(MAXIMUM_TIMESTAMP)));
   }
@@ -60,4 +73,5 @@ struct monitor {
   std::size_t curr_tp_ = 0;
   std::size_t max_tp_ = 0;
   verdict_printer printer_;
+  bool verbose_ = false;
 };
