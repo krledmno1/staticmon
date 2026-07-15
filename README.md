@@ -7,15 +7,11 @@ MFOTL formula is preprocessed into two header (`.h`) files that describe the
 formula; these instantiate the C++ template monitor, producing a specialized 
 monitor via template metaprogramming.
 
-The preprocessing (parse, type-check, monitorability check, codegen) is done by
-`staticmon-headers`, Staticmon's own dependency-free MFOTL front-end — no OCaml
-or MonPoly install is needed to build or run a monitor.
-
-You drive everything through one command, **`staticmon`**, which behaves like a
-normal monitor (à la MonPoly): hand it a signature and formula and it compiles a
-specialized monitor the first time, caches it, and monitors your trace. It runs
-the same whether backed by a **native** build tree or a **self-contained Docker
-image** — both are described below.
+Simplest way to use it is via the command, **`staticmon`** with a signature, 
+MFOTL formula, and a log. It compiles the given signature and formula into a 
+specialized monitor binary, caches it, and invokes it to monitor the given log. 
+It runs the same whether backed by a **native** build tree or a **self-contained 
+Docker image** — both are described below.
 
 ## Requirements
 
@@ -88,11 +84,87 @@ No image is published to a registry yet; if one is, `docker pull` it instead.
 
 If you installed `staticmon` on your PATH, use `staticmon`; otherwise run
 `scripts/staticmon` from the repo. Either way the launcher prefers the native
-build tree and falls back to the Docker image (`STATICMON_MODE=native|docker`
-overrides).
+build tree and falls back to the Docker image. You can override this with 
+`STATICMON_MODE=native|docker` environment variable.
 
-Formula syntax is MonPoly's; see [`docs/monpoly-grammar.md`](docs/monpoly-grammar.md).
-A signature declares predicate argument types, e.g. `p(int) q(int,string)`.
+```
+$ staticmon
+staticmon-impl: the staticmon dispatcher (native). Subcommands:
+
+  staticmon compile -sig S -formula F [-keep P] [-no-cache] [-cache D] [-quiet]
+      Turn (signature, formula) into a monitor binary. Prints the cached
+      binary's path (or copies it to P with -keep). Cached by a hash of the
+      generated headers, namespaced by a build fingerprint.
+
+  staticmon run -monitor M [-log FILE | -socket [PATH]] [-verdicts FILE]
+      Run a compiled monitor. -log/-socket are mutually exclusive; if both are
+      omitted the trace is read from standard input. Verdicts go to stdout
+      (or -verdicts FILE).
+
+  staticmon info -sig S -formula F
+      Print the formula's free-variable types and monitorability (no build).
+
+  staticmon -sig S -formula F [-log FILE | -socket [PATH]] [-verdicts FILE] \
+            [-keep P] [-no-cache] [-cache D] [-quiet]
+      All-in-one (compile then run) -- feels like a normal monitor.
+
+Environment: STATICMON_HOME (build tree; default: repo root), STATICMON_CACHE
+(default: ~/.cache/staticmon), STATICMON_BUILDDIR, STATICMON_HEADERS.
+set -euo pipefail
+
+self="$(cd "$(dirname "$0")" && pwd)"
+STATICMON_HOME="${STATICMON_HOME:-$(dirname "$self")}"
+```
+
+A signature declares predicate argument types used in the formula and also used in 
+logs as events (i.e., interpretations of formula predicates), e.g. `p(int) q(int,string)`
+declares `p` as a unary predicate with an integer argument and `q` as a binary predicate 
+with an integer and a string argument. 
+
+Formula syntax is in  MonPoly's format: 
+
+```
+f ::= ( f )
+    | FALSE                      
+    | TRUE                       
+    | P                          
+    | LET  P = f IN f            
+    | LETPAST P = f IN f
+    | t = t | t <= t | t < t
+    | t > t                      ⇒ Less(t2,t1)              (flipped!)
+    | t >= t                     ⇒ LessEq(t2,t1)            (flipped!)
+    | f OR f | f AND f | NOT f
+    | EXISTS varlist . f         (empty varlist = parse-time failure)
+    | var <- agg var f           (Aggreg, empty group-by)
+    | var <- agg var ; varlist f (Aggreg with group-by)
+    | PREV [I] f | NEXT [I] f | EVENTUALLY [I] f | ONCE [I] f
+    | f SINCE [I] f | f UNTIL [I] f 
+    
+
+agg ::= CNT | MIN | MAX | SUM | AVG | MED
+
+I  ::= lb , rb
+lb ::= ( u | [ u                 (open / closed lower bound)
+rb ::= u ) | u ] | * ) | * ]     (open / closed / infinite upper bound)
+u  ::= TU | INT
+
+P        ::= ident ( termlist )
+termlist ::= termarg (, termarg)*
+termarg  ::= t | _                
+
+t ::= t + t | t - t | t * t | t / t | t MOD t
+    | - t                       
+    | ( t )
+    | f2i(t) | i2f(t) | i2s(t) | s2i(t) | f2s(t) | s2f(t)
+    | cst | var
+
+cst ::= INT | RAT | STR_CST (stripped) 
+
+varlist      ::= var (, var)*         
+
+```
+
+
 
 ### Monitor a trace
 
@@ -101,11 +173,22 @@ staticmon -sig bla.sig -formula bla.mfotl -log trace.log
 cat trace.log | staticmon -sig bla.sig -formula bla.mfotl     # or stream on stdin
 ```
 
-The trace is in MonPoly format — one timepoint per line, each terminated by `;`:
+The trace is in MonPoly format: it consists of time-points, each starting 
+with `@` followed by a timestamp, then a list of events.
 
 ```
-@0 p(1) q(1,"a");
+@<ts> <event> ... <event>[;]
+```
+
+
+Each time-point is optionally terminated by `;` otherwise by the next `@`, and may 
+span multiple lines:
+
+```
+@0 p(1) 
+   q(1,"a")
 @2 p(3);
+@5 q(2,"b") p(4)
 ```
 
 Verdicts print as `@<ts> (time point <tp>): (<tuple>) ...`, one line per
