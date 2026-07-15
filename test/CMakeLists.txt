@@ -1,15 +1,18 @@
-# Behavioral / differential tests, driven by the shell harnesses. Every oracle
-# output (VeriMon verdicts, MonPoly typing/monitorability verdicts, parser ASTs)
-# is committed as a fixture, so nothing here runs monpoly or the parser oracle at
-# test time -- fixtures are (re)generated offline by each suite's regen.sh.
+# Behavioral / differential tests, driven by the shell harnesses. The fixture
+# suites' oracle outputs (VeriMon verdicts, MonPoly typing/monitorability, parser
+# ASTs) are committed, so those run no monpoly at test time -- fixtures are
+# (re)generated offline by each suite's regen.sh. The `random` suite is the one
+# exception: a LIVE randomized differential test against a user-provided VeriMon
+# binary (no monpoly dependency is committed).
 #
 #   ctest --preset conan-release             # everything (docker tests self-provision)
 #   ctest --preset conan-release -L fast     # native-only: parser_diff + pipeline_diff
 #   ctest --preset conan-release -L docker   # behavioral + monpoly_suite (needs docker)
+#   STATICMON_VERIMON=/path/to/monpoly ctest --preset conan-release -L random
 #
 # Each harness exits 77 -- reported as "Skipped", not "Failed" (SKIP_RETURN_CODE
 # 77 below) -- when a runtime prerequisite is missing: docker (the bench
-# container) for the docker suites, or python3.
+# container) for the docker suites, python3, or (random) $STATICMON_VERIMON.
 set(TD "${CMAKE_CURRENT_SOURCE_DIR}")
 
 # ---- fast (native) : replay committed fixtures against a freshly built tool --
@@ -33,3 +36,11 @@ add_test(NAME monpoly_suite
          COMMAND bash "${TD}/monpoly_suite/run_suite.sh" "$<TARGET_FILE:staticmon-headers>")
 set_tests_properties(behavioral monpoly_suite
                      PROPERTIES LABELS docker FIXTURES_REQUIRED bench SKIP_RETURN_CODE 77)
+
+# ---- random : live randomized differential test vs a USER-PROVIDED VeriMon ----
+# Generates random formulas + traces and compares staticmon to VeriMon live.
+# Skips unless $STATICMON_VERIMON points at a monpoly build (run with -verified);
+# the repo keeps no monpoly dependency. Native staticmon-impl compile (cached).
+add_test(NAME random_diff
+         COMMAND bash "${TD}/random_diff/run.sh" "$<TARGET_FILE:staticmon-headers>")
+set_tests_properties(random_diff PROPERTIES LABELS random SKIP_RETURN_CODE 77)
