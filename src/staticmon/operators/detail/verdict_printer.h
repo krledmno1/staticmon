@@ -2,6 +2,7 @@
 #include <algorithm>
 #include <boost/mp11.hpp>
 #include <cstdint>
+#include <cstdio>
 #include <fmt/format.h>
 #include <fmt/os.h>
 #include <fmt/ranges.h>
@@ -54,7 +55,11 @@ struct fmt::formatter<output_row_fmt<double>, char> : trivial_parser {
   template<typename FormatContext>
   auto format [[maybe_unused]] (const output_row_fmt<double> &arg_wrapper,
                                 FormatContext &ctx) const -> decltype(auto) {
-    return fmt::format_to(ctx.out(), "{:.5e}", arg_wrapper.t);
+    // monpoly formats floats with C's "%g" (Predicate.string_of_cst); match it
+    // exactly so verdicts are byte-identical, verbose or not.
+    char buf[64];
+    std::snprintf(buf, sizeof buf, "%g", arg_wrapper.t);
+    return fmt::format_to(ctx.out(), "{}", buf);
   }
 };
 
@@ -69,7 +74,9 @@ struct fmt::formatter<output_row_fmt<std::string>, char> : trivial_parser {
 
 class verdict_printer {
 public:
-  explicit verdict_printer(std::optional<std::string> file_name) {
+  explicit verdict_printer(std::optional<std::string> file_name,
+                           bool verbose = false)
+      : verbose_(verbose) {
     if (file_name)
       ofile_.emplace(fmt::output_file(std::move(*file_name)));
   }
@@ -82,9 +89,24 @@ public:
   template<typename... Args>
   void print_verdict(std::size_t ts, std::size_t tp,
                      std::vector<std::tuple<Args...>> &tbl) {
+    std::sort(tbl.begin(), tbl.end());
+    if (verbose_) {
+      // monpoly -verbose prints a line for every time point (helper.ml:154):
+      // a nullary relation as the boolean "true"/"false"; otherwise the whole
+      // relation "((a,b),(c,d))" (empty -> "()").
+      print("@{} (time point {}): ", ts, tp);
+      if constexpr (sizeof...(Args) == 0) {
+        print("{}\n", tbl.empty() ? "false" : "true");
+      } else {
+        print("(");
+        for (std::size_t i = 0; i < tbl.size(); ++i)
+          print("{}{}", i ? "," : "", output_row_fmt(tbl[i]));
+        print(")\n");
+      }
+      return;
+    }
     if (tbl.empty())
       return;
-    std::sort(tbl.begin(), tbl.end());
     print("@{} (time point {}):", ts, tp);
     if (tbl.size() == 1 && (sizeof...(Args) == 0)) {
       print(" true\n");
@@ -104,4 +126,5 @@ private:
       fmt::print(fmt, std::forward<Args>(args)...);
   }
   std::optional<fmt::ostream> ofile_;
+  bool verbose_ = false;
 };

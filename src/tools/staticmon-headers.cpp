@@ -15,9 +15,11 @@
 #include <staticmon/compile/desugar.h>
 #include <staticmon/compile/emit_headers.h>
 #include <staticmon/compile/monitorable.h>
+#include <staticmon/compile/monpoly_normalize.h>
 #include <staticmon/compile/translate.h>
 #include <staticmon/compile/typing.h>
 #include <staticmon/parser/formula_parser.h>
+#include <staticmon/parser/print_formula.h>
 #include <staticmon/parser/sig_parser.h>
 #include <string>
 
@@ -131,11 +133,15 @@ int main(int argc, char **argv) {
   // echo the input formula (trimmed) rather than a re-serialized AST; the free
   // variables are printed in the same order as -sigout.
   if (mode_verbose) {
-    auto l = formula_text.find_first_not_of(" \t\r\n");
-    auto r = formula_text.find_last_not_of(" \t\r\n");
-    std::string trimmed =
-      l == std::string::npos ? "" : formula_text.substr(l, r - l + 1);
-    std::cout << "The analyzed formula is:\n  " << trimmed << "\n";
+    // Reproduce monpoly -verbose's header. It analyses the normalized formula
+    // rf = normalize_negation(normalize_syntax(f)); when rf differs from the
+    // parsed formula f it also echoes f as "The input formula is:".
+    parser::formula nf = compile::normalize_formula(formula);
+    if (parser::print_formula(formula, "") != parser::print_formula(nf, ""))
+      std::cout << parser::print_formula(formula, "The input formula is:\n  ")
+                << "\n";
+    std::cout << parser::print_formula(nf, "The analyzed formula is:\n  ")
+              << "\n";
     std::cout << "The sequence of free variables is: (";
     for (std::size_t i = 0; i < orig_free.size(); ++i)
       std::cout << (i ? "," : "") << orig_free[i];

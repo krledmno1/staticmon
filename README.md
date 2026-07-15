@@ -306,11 +306,14 @@ Force a mode with `STATICMON_TEST_MODE=native|docker` (default `auto`).
 - The native monitorability check does not yet apply MonPoly's full rewriting
   (`rr`) pass, so it can be slightly more conservative than `monpoly -check`
   (sound, never unsound).
-- `-verbose` mirrors `monpoly -verbose`'s stream split (header on stderr,
-  `At time point <tp>:` and verdicts on stdout) and its time-point sequence
-  (including the extra end-of-log time point for bounded-future formulas). Two
-  deliberate differences remain: the header echoes the *input* formula rather
-  than a re-serialized AST (staticmon has no formula pretty-printer), and the
-  verdict lines keep staticmon's canonical format (`(1) (3)`, empty verdicts
-  omitted) instead of `-verbose`'s `((1),(3))` / explicit `()` — the same
-  verdicts every fixture and the differential comparator already rely on.
+- `-verbose` reproduces `monpoly -verbose` byte-for-byte for any formula in the
+  common fragment: the header on stderr (the *analyzed* formula — re-serialized
+  and normalized exactly as monpoly does, preceded by "The input formula is:"
+  when normalization changes it — and the free-variable sequence), and, on
+  stdout, `At time point <tp>:` per time point (including the end-of-log point
+  for bounded-future formulas) interleaved with the full verbose verdicts
+  (`((1),(3))`, empty `()`, nullary `true`/`false`). The one caveat is the
+  rr-gap: for a formula monpoly makes monitorable only via its `rr` rewriting
+  (which staticmon does not implement, and rejects), monpoly's "analyzed
+  formula" is the rewritten one, so the headers differ — but staticmon rejects
+  such formulas anyway, so this never arises for a formula it monitors.

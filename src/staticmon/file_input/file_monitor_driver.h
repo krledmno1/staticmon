@@ -15,7 +15,7 @@ public:
                       std::optional<std::string> verdict_path,
                       bool verbose = false)
       : log_(std::ifstream(log_path)),
-        monitor_(verdict_printer(verdict_path), verbose) {
+        monitor_(verdict_printer(verdict_path, verbose), verbose) {
     // A missing/unreadable log otherwise reads as an empty trace (no verdicts,
     // no error) -- surface it instead.
     if (!log_.is_open())
