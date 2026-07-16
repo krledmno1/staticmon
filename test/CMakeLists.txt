@@ -37,7 +37,11 @@ add_test(NAME monitor_generated
          COMMAND bash "${TD}/monitor/methods/fixture/run.sh" cases-generated "$<TARGET_FILE:staticmon-headers>")
 add_test(NAME monitor_corpus
          COMMAND bash "${TD}/monitor/methods/fixture/run.sh" cases-corpus "$<TARGET_FILE:staticmon-headers>")
-set_tests_properties(monitor_generated monitor_corpus
+# Hand-written cases pinning translation/codegen bugs the auto-generated suites
+# cannot cover (regen drops formulas staticmon fails to compile).
+add_test(NAME monitor_regression
+         COMMAND bash "${TD}/monitor/methods/fixture/run.sh" cases-regression "$<TARGET_FILE:staticmon-headers>")
+set_tests_properties(monitor_generated monitor_corpus monitor_regression
                      PROPERTIES LABELS monitor FIXTURES_REQUIRED bench SKIP_RETURN_CODE 77)
 
 # ---- monitor live : random formulas vs a USER-PROVIDED VeriMon --------------

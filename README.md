@@ -265,6 +265,10 @@ its fixtures offline (the only place the oracle runs).
 - `monitor_generated`, `monitor_corpus` *(monitor)* — compiled-monitor verdicts
    vs VeriMon (`monpoly -verified`), on random formulas and on MonPoly's own test
    corpus respectively.
+- `monitor_regression` *(monitor)* — a handful of hand-written cases pinning
+   translation/codegen bugs the generated suites can't (their regen *drops* any
+   formula staticmon fails to compile, so a regression would shrink them silently
+   rather than fail).
 - `monitor_live` *(live)* — a live randomized differential test: generates random
    formulas + traces, compares staticmon to a user-provided VeriMon
    (`$STATICMON_VERIMON`), and reports structural coverage of the fragment.

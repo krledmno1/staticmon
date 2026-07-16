@@ -1,0 +1,1 @@
+EXISTS b. (b <- CNT c write(c, d))

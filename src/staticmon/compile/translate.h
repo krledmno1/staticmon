@@ -478,15 +478,27 @@ private:
   }
 
   exformula_ptr translate_aggregation(const parser::fo_agg &a) {
+    // Variables of the enclosing scope, captured before the body introduces its
+    // own. An aggregation projects its body down to the group-by columns plus
+    // the result, but variables from a sibling/outer scope must survive it --
+    // e.g. `p(a) AND (y <- CNT x q(x))` is a join whose free `a` comes from the
+    // sibling. explicitmon's filter_vars keeps only the group-by vars, which
+    // silently drops such variables whenever the aggregation is not the
+    // outermost operand (monpoly's default backend accepts these formulas).
+    auto outer = vmap_;
     // Translate body first (populates vmap with agg/group-by/inner vars).
     exformula_ptr body = translate(*a.body);
     var_id agg_id = lookup_var(a.agg_var);
     std::vector<var_id> gids;
     for (const auto &g : a.group_by)
       gids.push_back(lookup_var(g));
-    // Restrict the variable environment to the group-by vars, then add the
-    // (fresh) result variable (explicitmon: filter_vars then maybe_add_var).
-    std::map<std::string, var_id> restricted;
+    // Restrict to the enclosing vars + group-by columns, dropping the body's
+    // inner (aggregated/local) variables. Keep any enclosing binding of the
+    // result variable so maybe_add_var reuses its id: when an outer `EXISTS`
+    // binds the result (e.g. `EXISTS b. (b <- CNT c f)`), the MExists projects
+    // that id, so the aggregation must produce the same one; when the result is
+    // free it is simply absent here and gets a fresh id.
+    std::map<std::string, var_id> restricted = std::move(outer);
     for (const auto &g : a.group_by)
       restricted[g] = vmap_[g];
     vmap_ = std::move(restricted);

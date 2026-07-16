@@ -1,0 +1,4 @@
+@0 write(1,10) write(1,20) read(2,10);
+@1 acq(3,5) write(3,10);
+@2 write(1,10) read(1,10) rel(3,5);
+@3 write(2,99);
