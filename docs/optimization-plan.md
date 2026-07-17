@@ -94,6 +94,23 @@ instance construction).
 exists, and checks the step-0/B diagnosis (expectation: instance-replay frames
 dominate; copies are a minority share).
 
+**Baseline results (2026-07-17, `profile.py`, self-time shares + inclusive
+copy):**
+
+| shape | eval | hash | join | alloc | mfrz::feed | incl. copy |
+|---|---:|---:|---:|---:|---:|---:|
+| nested@400 (int) | 24% | 18% | 14% | 32% | 0.6% | **18.5%** |
+| once[0,\*)@800 (int) | — | 16% | 22% | 27% | 27% | **17.5%** |
+| eventually@800 (int) | — | 19% | 16% | 24% | 20% | **12.1%** |
+| once[0,\*) long (str) | 12% | 12% | 8% | 22% | **35%** | 13.7% |
+
+Diagnosis confirmed: on nested, replay *computation* (eval+hash+join ≈ 57%)
+dominates — the win is in doing fewer replays (step 0, B), not cheaper copies.
+Copy-attributable time is 12–18% on int logs; the string payload costs +28%
+wall with the broadcast copy surfacing in `mfrz::feed` (27% → 35%). That is
+opt A's ceiling on these shapes — a modest constant factor, to be re-profiled
+post-B per the decision rule.
+
 ## Optimizations
 
 ### Step 0 — Lag-aware window guard (`opt/frz-window-guard`)
