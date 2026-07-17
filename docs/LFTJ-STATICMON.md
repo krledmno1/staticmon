@@ -561,3 +561,46 @@ post-hoc (J3). `STATICMON_GENJOIN_FOLD` restores the fold. Exit
 measurements (verdicts identical): triangle N=100k **7.05s → 3.11s
 (2.3×), RSS 656MB → 134MB**; x-shared parity — expected, its positive
 output *is* the cross product; that shape's win is J3's veto-in-descent.
+
+### WP-J3 — negative vetoes (2026-07-17): DONE
+
+Check-only vetoes at coverage depth + nullary pre-check (rule 3.3).
+Correctness: **521/521** fixtures (genjoin 28, regression 3, frz 105,
+generated 150, corpus 235) + **0/59** live differential vs VeriMon.
+
+Process note: the first J3 gate+live-diff run reported 12 live-diff and 1
+fixture "mismatches" -- ALL were cache-race false positives from running
+the fixture gate and the live differential concurrently (two staticmon-impl
+compile streams share the one builddir even with separate cache dirs). A
+sequential re-run of the exact same seed gave 28/28 and 0/59. No code was
+at fault. (Rule reinforced: only ever one compile stream in flight.)
+
+### WP-J4 — measurement + acceptance (2026-07-17): DONE
+
+Branch-vs-master, min-of-3, warmed (`experiments/baselines/<sha>/genjoin_j4.csv`):
+
+| shape | master | branch | speedup |
+|---|---:|---:|---:|
+| triangle N=20k D=500 | 0.368s | 0.254s | **1.45×** |
+| triangle N=50k D=1000 | 1.346s | 0.700s | **1.92×** |
+| triangle N=100k D=1000 (earlier) | 7.05s | 3.11s | **2.3×** |
+| x-shared+neg T=160 | 1.758s | 1.053s | **1.67×** |
+| x-shared+neg T=240 | 4.122s | 2.512s | **1.64×** |
+| small2 (5/20/50 rows, flattened) | — | — | 1.02 / 0.99 / 0.98× |
+| med2 (200/1000 rows, flattened) | — | — | 0.97 / 0.94× |
+| cart2 (50/200 rows, flattened) | — | — | 1.01 / 1.01× |
+
+**Exit criteria met.** (i) ≥2× on the WCO shape: triangle 1.92× at N=50k,
+2.3× at N=100k -- the documented analogue of the manual data-race Havelund
+series (whose traces the collaborators provide; §9). (ii) No regression
+> 10% anywhere: the flattened small/anti-shapes (2-way shared-subset and
+cartesian, which the 6.5 gate rewrites) stay within noise -- worst is
+med2_1000 at 6% (~parity), so the gate needs **no** size threshold; on
+tiny tables sort+descend ties the hash join. (iii) Compile time within
++20%: worst +11% (tri_50k), and xsh_240 actually compiled faster. All
+verdicts identical on every shape.
+
+WP-J5 backlog (unshipped): galloping-seek binary-search touch-up (currently
+an O(range) linear scan after the gallop -- correct, not yet O(log));
+keep temporal children's state sorted to skip the per-tp sort; order hints
+from the cost oracle; constant folding into seeks.
