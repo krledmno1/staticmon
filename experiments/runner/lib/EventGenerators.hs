@@ -31,8 +31,10 @@ import Data.Aeson
   )
 import Data.Aeson.TH (deriveJSON)
 import Data.Char (toLower)
+import Data.Bits (xor)
 import Data.Int (Int64)
 import Data.List (intersperse, sortBy)
+import Data.Word (Word32)
 import Data.Map qualified as M
 import Data.Random (RVar, shuffle)
 import Data.Random.Distribution.Bernoulli (bernoulli)
@@ -50,7 +52,7 @@ import Flags (Flags (..), NestedFlags (..))
 import Fmt (Buildable (build), Builder, fixedF, (+|), (|+))
 import SignatureParser (SigType (..), Signature)
 import System.IO (IOMode (WriteMode), withFile)
-import System.Random.Stateful (globalStdGen, uniformRM)
+import System.Random.Stateful (globalStdGen, mkStdGen, setStdGen, uniformRM)
 
 maxEventIntValue :: Int64 = 100000
 
@@ -366,8 +368,53 @@ $( deriveJSON
      ''FrzBody
  )
 
+-- Event payload type: integers are cheap to copy; strings put every event
+-- through a heap allocation, which is what distinguishes copying from sharing
+-- the database (docs/optimization-plan.md, opt A).
+data PayloadTy = IntPayload | StrPayload deriving (Show)
+
+$( deriveJSON
+     defaultOptions
+       { constructorTagModifier = map toLower,
+         sumEncoding = ObjectWithSingleField
+       }
+     ''PayloadTy
+ )
+
+-- | The shape of a benchmark's log, along the axes the FRZ optimizations are
+-- sensitive to. Time-points per timestamp (stuttering) is the benchmark-level
+-- `numtpperts`, since every family already has it.
+--
+--   * 'ls_eventrate' -- events per predicate per TIMESTAMP, split evenly over
+--     the stuttering time-points, so raising `numtpperts` varies the index rate
+--     at constant data volume.
+--   * 'ls_tsstep' -- how far the timestamp advances between time-point groups.
+--     Sparse timestamps shrink the number of time-points a metric window
+--     [ts-d, ts] covers; stuttering grows it. Both change the replay work of a
+--     windowed FRZ at constant data volume.
+--   * 'ls_domain' -- upper bound of the value domain: small domains make events
+--     collide (small tables, many duplicate tuples), large ones keep them
+--     distinct.
+--   * 'ls_payload' -- int or string events.
+data LogShape = LogShape
+  { ls_eventrate :: Int,
+    ls_tsstep :: Int,
+    ls_domain :: Int,
+    ls_payload :: PayloadTy
+  }
+  deriving (Show)
+
+$( deriveJSON
+     defaultOptions
+       { fieldLabelModifier = drop 3,
+         constructorTagModifier = map toLower,
+         sumEncoding = ObjectWithSingleField
+       }
+     ''LogShape
+ )
+
 data FrzConfig = FrzConfig
-  { fz_eventrate :: Int,
+  { fz_shape :: LogShape,
     fz_ubound :: TemporalBound, -- upper bound of the body's interval [0,b]
     fz_body :: FrzBody
   }
@@ -546,7 +593,7 @@ benchCost OperatorBenchmark {..} = op_numts * op_numtpperts * max 1 (cfgSize op_
     cfgSize (AntiJoinOperator AntiJoinConfig {..}) = aj_lsize + aj_rsize
     cfgSize (ExistsOperator ExistsConfig {..}) = ex_size
     cfgSize (OnceAndEqOperator OnceAndEqConfig {..}) = oa_eventrate
-    cfgSize (FrzOperator FrzConfig {..}) = fz_eventrate
+    cfgSize (FrzOperator FrzConfig {..}) = ls_eventrate fz_shape
     cfgSize (TemporalOperator TemporalConfig {..}) = subSize tc_suboperator
     subSize (OnceOperator OnceConfig {..}) = oc_eventrate
     subSize (EventuallyOperator EventuallyConfig {..}) = ev_eventrate
@@ -618,18 +665,30 @@ getBenchName OperatorBenchmark {..} =
               +| oa_eventrate
               |+ ""
           FrzOperator FrzConfig {..} ->
-            let bodyname :: Builder = case fz_body of
+            let LogShape {..} = fz_shape
+                bodyname :: Builder = case fz_body of
                   FrzCurrent -> "current"
                   FrzOnce -> "once"
                   FrzSince -> "since"
                   FrzEventually -> "eventually"
                   FrzNested -> "nested"
-             in "frz_"
+                payloadname :: Builder = case ls_payload of
+                  IntPayload -> "int"
+                  StrPayload -> "str"
+             in -- the log shape is part of the identity: it selects the data,
+                -- and (via seedForBenchmark) the pseudo-random log itself
+                "frz_"
                   +| bodyname
                   |+ "_"
                   +| fz_ubound
                   |+ "_"
-                  +| fz_eventrate
+                  +| ls_eventrate
+                  |+ "_"
+                  +| ls_tsstep
+                  |+ "_"
+                  +| ls_domain
+                  |+ "_"
+                  +| payloadname
                   |+ ""
           TemporalOperator TemporalConfig {..} ->
             case tc_suboperator of
@@ -1027,12 +1086,42 @@ temporalBenchGen log_f sig_f fo_f nts ntp TemporalConfig {..} =
             siut_rmp = ut_removeprobability
           }
 
+-- A single random event value of the requested payload type, drawn from
+-- [0, domain]. Strings are emitted pre-quoted, as monpoly's trace format wants
+-- (EventPrinting builds Str verbatim). Left monad-polymorphic (like
+-- randomInt64Vec) so it can be used directly inside the printer's OutpS.
+randomPayload payload domain =
+  case payload of
+    IntPayload -> Intgr <$> draw
+    StrPayload -> (\i -> Str ("\"s" +| i |+ "\"")) <$> draw
+  where
+    draw :: (MonadIO m) => m Int64
+    draw = uniformRM (0, fromIntegral domain) globalStdGen
+
+outputRandomPayloadEvents name num payload domain =
+  forM_ [0 .. (num - 1)] $
+    const $
+      (: []) <$> randomPayload payload domain >>= outputNewEvent name
+
+addPredToSigTy name ty arity sig_h = T.hPutStr sig_h psig
+  where
+    psig = "" +| name |+ "(" +| tylist |+ ")"
+    tylist = (mconcat . intersperse ",") (replicate arity (build ty))
+
+payloadSigTy :: PayloadTy -> T.Text
+payloadSigTy IntPayload = "int"
+payloadSigTy StrPayload = "string"
+
 -- FRZ benchmark: freeze P(x0) at each outer time-point; the body shape picks
--- the runtime mode under test. The trace carries `eventrate` random events per
--- time-point for each of P and Q.
+-- the runtime mode under test, the log shape picks the data characteristics
+-- (docs/optimization-plan.md, I1). The trace carries `eventrate` random events
+-- per timestamp for each of P and Q, split over the `ntp` stuttering
+-- time-points of that timestamp.
 frzBenchGen log_f sig_f fo_f nts ntp FrzConfig {..} =
-  let newEvPerTp = fz_eventrate `div` ntp
+  let LogShape {..} = fz_shape
+      newEvPerTp = max 1 (ls_eventrate `div` ntp)
       intv = (CstBound 0, fz_ubound)
+      ty = payloadSigTy ls_payload
    in do
         case fz_body of
           FrzCurrent ->
@@ -1053,17 +1142,31 @@ frzBenchGen log_f sig_f fo_f nts ntp FrzConfig {..} =
         withFile
           sig_f
           WriteMode
-          (\sig_h -> addPredToSig "P" 1 sig_h >> addPredToSig "Q" 1 sig_h)
+          ( \sig_h ->
+              addPredToSigTy "P" ty 1 sig_h >> addPredToSigTy "Q" ty 1 sig_h
+          )
         withPrintState log_f $ do
           forM_ [0 .. nts] $ \i ->
             forM_ [0 .. (ntp - 1)] $ \_ -> do
-              newDb i
-              outputRandomEvents "P" newEvPerTp 1
-              outputRandomEvents "Q" newEvPerTp 1
+              newDb (i * ls_tsstep)
+              outputRandomPayloadEvents "P" newEvPerTp ls_payload ls_domain
+              outputRandomPayloadEvents "Q" newEvPerTp ls_payload ls_domain
           endOutput
 
+-- | Seed the global generator from the benchmark's name, so a benchmark's log
+-- depends only on its own configuration -- not on which other benchmarks ran
+-- before it, nor on system entropy. Without this the harness draws from an
+-- unseeded global generator, so every run monitors DIFFERENT data and a
+-- branch-vs-master performance comparison is not on equal inputs
+-- (docs/optimization-plan.md: master is the performance reference).
+seedForBenchmark :: OperatorBenchmark -> IO ()
+seedForBenchmark b = setStdGen (mkStdGen (fnv (getBenchName b)))
+  where
+    fnv = fromIntegral . T.foldl' (\h c -> (h `xor` fromIntegral (fromEnum c)) * 16777619) (2166136261 :: Word32)
+
 generateLogForBenchmark :: FilePath -> FilePath -> FilePath -> OperatorBenchmark -> IO ()
-generateLogForBenchmark log_f sig_f fo_f OperatorBenchmark {..} =
+generateLogForBenchmark log_f sig_f fo_f b@OperatorBenchmark {..} = do
+  seedForBenchmark b
   case op_config of
     AndOperator andconf -> andBenchGen log_f sig_f fo_f op_numts op_numtpperts andconf
     AntiJoinOperator ajconf -> andNotBenchGen log_f sig_f fo_f op_numts op_numtpperts ajconf

@@ -61,11 +61,13 @@ configs = [
         "conv_fs": ([int] * 3) + [id_f, int]
     },
     {
-        # freeze operator: <numts>_<numtp>_frz_<body>_<ubound|inf>_<evr>
+        # freeze operator, with its log shape:
+        # <numts>_<numtp>_frz_<body>_<ubound|inf>_<evr>_<tsstep>_<domain>_<payload>
         "name": "frz",
-        "regex": r"(\d*)_(\d*)_frz_([a-z]*)_(\d*|inf)_(\d*)",
-        "cols": ["numts", "numtp", "body", "ubound", "evr"],
-        "conv_fs": [int, int, id_f, id_f, int]
+        "regex": r"(\d*)_(\d*)_frz_([a-z]*)_(\d*|inf)_(\d*)_(\d*)_(\d*)_(int|str)",
+        "cols": ["numts", "numtp", "body", "ubound", "evr", "tsstep",
+                 "domain", "payload"],
+        "conv_fs": [int, int, id_f, id_f, int, int, int, id_f]
     },
     {
         "name": "previous",
