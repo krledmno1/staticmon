@@ -126,12 +126,24 @@ by construction, the inner window is always killed, and every inner instance
 replays its whole inner prefix: Σ_k O(k²) = **Θ(j³)**.
 
 **Implementation.** `translate.h` only. `bound_scope_` entries carry a
-`lag_free` bit: FRZ always true; LET true iff its definition has no future
-operator; LETPAST conservatively false (revisit with a test). The guard becomes
-"references a *lagging* enclosing bound predicate". This rests on an asymmetry
-worth stating: an enclosing predicate's *values* are already recorded in the
-replayed history (it contributes depth 0 — nothing is recomputed); only its
-stream alignment matters.
+`lag_free` bit. **Corrected during implementation** (the original sketch said
+"FRZ always lag-free", which is wrong): lag-freeness depends on the binder's
+*runtime representation*, not its surface kind —
+
+- temporal-mode FRZ (`mfrz`): always lag-free, even with future operators in
+  the definition — those delay *instance creation* (verdict latency), never
+  the per-batch completeness of the broadcast stream;
+- current-only FRZ (compiled to `mlet`) and LET: lag-free iff the definition
+  has no future operator — a current-only freeze over `EVENTUALLY …` *is* a
+  lagging binder (regression fixture `x_lag_trap` pins exactly this: naively
+  marking it lag-free would window the inner replay across a lagging
+  positional stream and produce wrong verdicts);
+- LETPAST: conservatively lagging.
+
+The guard becomes "references a *lagging* enclosing bound predicate". This
+rests on an asymmetry worth stating: an enclosing predicate's *values* are
+already recorded in the replayed history (it contributes depth 0 — nothing is
+recomputed); only its stream alignment matters.
 
 **Largest affected fragment.** Temporal-mode FRZ with a purely bounded-past
 body that references an enclosing binder-bound predicate — dominated by nested
@@ -149,6 +161,23 @@ spans many time-points.
 **Measurement.** The nested doubling ratio must fall from ~8 to ~4
 (`frz_nested@400`: TIMEOUT → monpoly class). Add a depth-3 nesting benchmark
 (the win compounds per level). Everything else within noise.
+
+**Results (2026-07-17, seeded logs, branch vs master, staticmon):**
+
+| nested @ | master | branch | speedup |
+|---|---:|---:|---:|
+| 100 | 0.214 | 0.085 | 2.5× |
+| 200 | 1.418 | 0.260 | 5.5× |
+| 400 | 10.73 | 0.985 | **10.9×** |
+| 800 | TIMEOUT (60s) | 3.91 | ≥15× |
+
+Master ratios ×6.6/×7.6 (cubic); branch ×3.1/×3.8/×4.0 (quadratic) —
+Θ(j³) → Θ(j²·w) as predicted. All other rows within the ±3% gate
+(eventually@800 +1.4%, once[0,\*)@800 +1.7%). Emitted-Depth introspection:
+nested inner freeze `frz_no_depth → 10UL`; enclosing-past-LET windowed at
+its true depth; `x_lag_trap` and enclosing-future-LET correctly stay
+unwindowed. Correctness: 102/102 FRZ fixtures (incl. 4 new lag-guard
+fixtures) + 3/3 regression vs VeriMon.
 
 ### Opt B — Depth analysis through nested binders (`opt/frz-depth-nested`)
 

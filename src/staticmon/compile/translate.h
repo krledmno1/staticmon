@@ -251,12 +251,52 @@ private:
       f.node);
   }
 
+  // Can this (desugared) formula's output stream lag behind the time-points
+  // fed to it? Any future operator delays verdicts, so an operator whose
+  // definition contains one emits fewer tables than the batch has time-points
+  // until later input resolves them. Conservative recursion into nested
+  // binders and regex.
+  static bool has_future_op(const parser::formula &f) {
+    using namespace parser;
+    return std::visit(
+      [&](const auto &v) -> bool {
+        using T = std::remove_cvref_t<decltype(v)>;
+        if constexpr (std::is_same_v<T, fo_pred> || std::is_same_v<T, fo_cmp> ||
+                      std::is_same_v<T, fo_matches>) {
+          return false;
+        } else if constexpr (std::is_same_v<T, fo_neg>) {
+          return has_future_op(*v.arg);
+        } else if constexpr (std::is_same_v<T, fo_prop>) {
+          return has_future_op(*v.l) || has_future_op(*v.r);
+        } else if constexpr (std::is_same_v<T, fo_quant> ||
+                             std::is_same_v<T, fo_agg>) {
+          return has_future_op(*v.body);
+        } else if constexpr (std::is_same_v<T, fo_temporal_un>) {
+          if (v.op == temporal_unop::next ||
+              v.op == temporal_unop::eventually)
+            return true;
+          return has_future_op(*v.body);
+        } else if constexpr (std::is_same_v<T, fo_temporal_bin>) {
+          if (v.op == temporal_binop::until ||
+              v.op == temporal_binop::release)
+            return true;
+          return has_future_op(*v.l) || has_future_op(*v.r);
+        } else if constexpr (std::is_same_v<T, fo_let>) {
+          return has_future_op(*v.bound) || has_future_op(*v.body);
+        } else {  // fo_regex: conservative
+          return true;
+        }
+      },
+      f.node);
+  }
+
   // Does the formula reference any predicate in `keys` (name, arity), other
   // than `own`? Shadowing by inner binders is ignored (over-approximates,
   // which only disables an optimization). Used to disable mfrz's bounded-past
-  // window when the body reads an enclosing-binder-bound predicate: such a
-  // predicate's database stream is positional (aligned from time-point 0, and
-  // possibly lagging), so a replay must start at 0 to stay aligned.
+  // window when the body reads an enclosing-binder-bound predicate whose
+  // stream can LAG: such a stream is positional (aligned from time-point 0,
+  // with fewer entries than the batch has time-points until later input
+  // resolves them), so a mid-stream replay start would misalign it.
   static bool references_bound_pred(
     const parser::formula &f,
     const std::vector<std::pair<std::string, std::size_t>> &keys,
@@ -715,14 +755,23 @@ private:
              "definition is not supported");
       if (frz_occ >= 2) {
         frz_depth = frz_body_depth(*l.body);
-        // A body reading an enclosing-binder-bound predicate must replay from
-        // time-point 0: those database streams are positionally aligned from
-        // the start (and can lag behind the trace), so a windowed mid-stream
-        // start would misalign them.
-        if (frz_depth &&
-            references_bound_pred(*l.body, bound_scope_,
-                                  {l.head.name, arity}))
-          frz_depth.reset();
+        // A body reading a LAGGING enclosing-binder-bound predicate must
+        // replay from time-point 0: a lagging stream is positional (aligned
+        // from the start, with fewer entries per batch than time-points until
+        // later input resolves them), so a windowed mid-stream start would
+        // misalign it. Lag-free enclosing predicates -- one table per fed
+        // time-point in every batch -- are per-batch self-contained in the
+        // recorded history and window safely; their values are replayed data,
+        // never recomputed, so they contribute no depth either.
+        if (frz_depth) {
+          std::vector<std::pair<std::string, std::size_t>> lagging;
+          for (const auto &e : bound_scope_)
+            if (!e.lag_free)
+              lagging.push_back({e.name, e.arity});
+          if (!lagging.empty() &&
+              references_bound_pred(*l.body, lagging, {l.head.name, arity}))
+            frz_depth.reset();
+        }
       }
     }
 
@@ -759,9 +808,19 @@ private:
       schema_[l.head.name] = param_types;
     };
 
+    // Whether this binder's database stream can lag (see scope_entry). For a
+    // FRZ the runtime representation decides: temporal mode broadcasts and is
+    // always lag-free; the current-only (mlet) path carries the definition's
+    // possibly-lagging output stream, exactly like LET. An elided FRZ
+    // (frz_occ == 0) is never referenced, so its value is irrelevant.
+    bool lag_free =
+      !past && (frz ? (frz_occ >= 2 || !has_future_op(*l.bound))
+                    : !has_future_op(*l.bound));
+
     if (past) {
       bind_pred();
-      bound_scope_.push_back(pkey);  // recursive: in scope inside f1 too
+      // recursive: in scope inside f1 too
+      bound_scope_.push_back({l.head.name, arity, lag_free});
     }
     bool saved_in_lp = in_letpast_bound_;
     if (past)
@@ -777,7 +836,7 @@ private:
       pred_layout.push_back(lookup_var(p));
     if (!past) {
       bind_pred();
-      bound_scope_.push_back(pkey);
+      bound_scope_.push_back({l.head.name, arity, lag_free});
     }
     for (auto &[name, old] : saved_vars) {
       if (old)
@@ -821,8 +880,25 @@ private:
   std::map<std::string, var_id> vmap_;
   std::map<std::pair<std::string, std::size_t>, pred_id> pmap_;
   // Binder-bound predicates currently in scope (LET/LETPAST/FRZ), innermost
-  // last; consulted by the FRZ window analysis.
-  std::vector<std::pair<std::string, std::size_t>> bound_scope_;
+  // last; consulted by the FRZ window analysis. `lag_free` records whether the
+  // predicate's database stream is complete per batch (one table per fed
+  // time-point) -- it depends on the binder's RUNTIME representation, not its
+  // surface kind:
+  //   - temporal-mode FRZ (mfrz): always lag-free -- instances are created
+  //     only once the frozen verdict exists, and feed() broadcasts exactly
+  //     ts.size() tables in every batch; future operators in the definition
+  //     delay instance creation, never the per-batch completeness of p;
+  //   - current-only FRZ (compiled to mlet) and LET: the entry is the
+  //     definition's output stream, which lags iff the definition contains a
+  //     future operator;
+  //   - LETPAST: conservatively lagging (its recursion feeds synthetic
+  //     batches).
+  struct scope_entry {
+    std::string name;
+    std::size_t arity;
+    bool lag_free;
+  };
+  std::vector<scope_entry> bound_scope_;
   // Inside a LETPAST definition (its recursion feeds synthetic batches that
   // temporal-mode FRZ cannot replay -- rejected there).
   bool in_letpast_bound_ = false;
