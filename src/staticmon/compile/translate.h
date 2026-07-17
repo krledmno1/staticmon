@@ -195,6 +195,172 @@ private:
                        translate_bound(i.upper, true)};
   }
 
+  // ---- FRZ analyses (on the desugared parser AST) --------------------------
+
+  // How the FRZ body uses the frozen predicate: 0 = not at all, 1 = only at
+  // the current time-point, 2 = under a temporal operator (or inside a nested
+  // binder's definition, whose query index is not statically the outer one).
+  // With no temporal-position use, FRZ coincides with LET: the body only ever
+  // queries the predicate at the outer time-point, which is where LET's
+  // binding and FRZ's frozen relation agree. (MonPoly dispatches on the body
+  // containing any temporal operator at all; checking the *predicate's*
+  // positions is a strictly wider cheap path with the same argument.)
+  static int frz_occurrence(const parser::formula &f, const std::string &name,
+                            std::size_t arity, bool temporal) {
+    using namespace parser;
+    return std::visit(
+      [&](const auto &v) -> int {
+        using T = std::remove_cvref_t<decltype(v)>;
+        if constexpr (std::is_same_v<T, fo_pred>) {
+          if (v.name == name && v.args.size() == arity)
+            return temporal ? 2 : 1;
+          return 0;
+        } else if constexpr (std::is_same_v<T, fo_cmp> ||
+                             std::is_same_v<T, fo_matches>) {
+          return 0;
+        } else if constexpr (std::is_same_v<T, fo_neg>) {
+          return frz_occurrence(*v.arg, name, arity, temporal);
+        } else if constexpr (std::is_same_v<T, fo_prop>) {
+          return std::max(frz_occurrence(*v.l, name, arity, temporal),
+                          frz_occurrence(*v.r, name, arity, temporal));
+        } else if constexpr (std::is_same_v<T, fo_quant>) {
+          return frz_occurrence(*v.body, name, arity, temporal);
+        } else if constexpr (std::is_same_v<T, fo_agg>) {
+          return frz_occurrence(*v.body, name, arity, temporal);
+        } else if constexpr (std::is_same_v<T, fo_temporal_un>) {
+          return frz_occurrence(*v.body, name, arity, true);
+        } else if constexpr (std::is_same_v<T, fo_temporal_bin>) {
+          return std::max(frz_occurrence(*v.l, name, arity, true),
+                          frz_occurrence(*v.r, name, arity, true));
+        } else if constexpr (std::is_same_v<T, fo_let>) {
+          // A nested binder shadows the predicate for the scopes where its own
+          // binding is visible: the body always, the definition only for
+          // LETPAST (recursive). Occurrences inside a (non-shadowed) nested
+          // definition count as temporal: the definition is re-evaluated at
+          // whatever indices the nested predicate is queried at.
+          bool shadows = v.head.name == name && v.head.args.size() == arity;
+          int b = 0;
+          if (!(shadows && v.kind == let_kind::let_past))
+            b = frz_occurrence(*v.bound, name, arity, true);
+          int c = shadows ? 0 : frz_occurrence(*v.body, name, arity, temporal);
+          return std::max(b, c);
+        } else {  // fo_regex: not in the backend fragment; be conservative
+          return 2;
+        }
+      },
+      f.node);
+  }
+
+  // Does the formula reference any predicate in `keys` (name, arity), other
+  // than `own`? Shadowing by inner binders is ignored (over-approximates,
+  // which only disables an optimization). Used to disable mfrz's bounded-past
+  // window when the body reads an enclosing-binder-bound predicate: such a
+  // predicate's database stream is positional (aligned from time-point 0, and
+  // possibly lagging), so a replay must start at 0 to stay aligned.
+  static bool references_bound_pred(
+    const parser::formula &f,
+    const std::vector<std::pair<std::string, std::size_t>> &keys,
+    const std::pair<std::string, std::size_t> &own) {
+    using namespace parser;
+    return std::visit(
+      [&](const auto &v) -> bool {
+        using T = std::remove_cvref_t<decltype(v)>;
+        if constexpr (std::is_same_v<T, fo_pred>) {
+          std::pair<std::string, std::size_t> k{v.name, v.args.size()};
+          if (k == own)
+            return false;
+          return std::find(keys.begin(), keys.end(), k) != keys.end();
+        } else if constexpr (std::is_same_v<T, fo_cmp> ||
+                             std::is_same_v<T, fo_matches>) {
+          return false;
+        } else if constexpr (std::is_same_v<T, fo_neg>) {
+          return references_bound_pred(*v.arg, keys, own);
+        } else if constexpr (std::is_same_v<T, fo_prop>) {
+          return references_bound_pred(*v.l, keys, own) ||
+                 references_bound_pred(*v.r, keys, own);
+        } else if constexpr (std::is_same_v<T, fo_quant> ||
+                             std::is_same_v<T, fo_agg>) {
+          return references_bound_pred(*v.body, keys, own);
+        } else if constexpr (std::is_same_v<T, fo_temporal_un>) {
+          return references_bound_pred(*v.body, keys, own);
+        } else if constexpr (std::is_same_v<T, fo_temporal_bin>) {
+          return references_bound_pred(*v.l, keys, own) ||
+                 references_bound_pred(*v.r, keys, own);
+        } else if constexpr (std::is_same_v<T, fo_let>) {
+          return references_bound_pred(*v.bound, keys, own) ||
+                 references_bound_pred(*v.body, keys, own);
+        } else {  // fo_regex: conservative
+          return true;
+        }
+      },
+      f.node);
+  }
+
+  // MonPoly's body_depth (algorithm.ml): the furthest timestamp-distance the
+  // FRZ body can look into the past, defined only for purely bounded-past
+  // bodies -- boolean/quantifier/aggregation structure over atoms and
+  // ONCE/SINCE with finite interval upper bounds. PREV/NEXT (time-point
+  // relative), future operators, nested binders and regex disable the window
+  // (nullopt = replay the whole prefix).
+  static std::optional<std::size_t> frz_body_depth(const parser::formula &f) {
+    using namespace parser;
+    auto ub = [](const interval &i) -> std::optional<std::size_t> {
+      return std::visit(
+        [](const auto &b) -> std::optional<std::size_t> {
+          using B = std::remove_cvref_t<decltype(b)>;
+          if constexpr (std::is_same_v<B, bnd_inf>) {
+            return std::nullopt;
+          } else {
+            try {
+              std::size_t v = std::stoull(b.value.dec);
+              return v;
+            } catch (...) {
+              return std::nullopt;  // absurdly large: treat as unbounded
+            }
+          }
+        },
+        i.upper);
+    };
+    return std::visit(
+      [&](const auto &v) -> std::optional<std::size_t> {
+        using T = std::remove_cvref_t<decltype(v)>;
+        if constexpr (std::is_same_v<T, fo_pred> || std::is_same_v<T, fo_cmp> ||
+                      std::is_same_v<T, fo_matches>) {
+          return 0;
+        } else if constexpr (std::is_same_v<T, fo_neg>) {
+          return frz_body_depth(*v.arg);
+        } else if constexpr (std::is_same_v<T, fo_quant>) {
+          return frz_body_depth(*v.body);
+        } else if constexpr (std::is_same_v<T, fo_agg>) {
+          return frz_body_depth(*v.body);
+        } else if constexpr (std::is_same_v<T, fo_prop>) {
+          auto a = frz_body_depth(*v.l), b = frz_body_depth(*v.r);
+          if (a && b)
+            return std::max(*a, *b);
+          return std::nullopt;
+        } else if constexpr (std::is_same_v<T, fo_temporal_un>) {
+          if (v.op != temporal_unop::once)
+            return std::nullopt;  // prev/next/eventually (post-desugar set)
+          auto u = ub(v.intv);
+          auto d = frz_body_depth(*v.body);
+          if (u && d)
+            return *u + *d;
+          return std::nullopt;
+        } else if constexpr (std::is_same_v<T, fo_temporal_bin>) {
+          if (v.op != temporal_binop::since)
+            return std::nullopt;
+          auto u = ub(v.intv);
+          auto a = frz_body_depth(*v.l), b = frz_body_depth(*v.r);
+          if (u && a && b)
+            return *u + std::max(*a, *b);
+          return std::nullopt;
+        } else {  // fo_let (nested binders), fo_regex
+          return std::nullopt;
+        }
+      },
+      f.node);
+  }
+
   // ---- fused-op guards (explicitmon.ml is_and_relop/is_special_case/...) --
   static bool subset(const std::vector<std::string> &a,
                      const std::vector<std::string> &b) {
@@ -519,9 +685,8 @@ private:
   }
 
   exformula_ptr translate_let(const parser::fo_let &l) {
-    if (l.kind == parser::let_kind::frz)
-      fail("FRZ is not supported by the backend");
     const bool past = (l.kind == parser::let_kind::let_past);
+    const bool frz = (l.kind == parser::let_kind::frz);
 
     std::vector<std::string> params;
     for (const auto &a : l.head.args) {
@@ -531,6 +696,35 @@ private:
       params.push_back(var->name);
     }
     std::size_t arity = params.size();
+
+    // FRZ mode dispatch (MonPoly's static/per-instance split, refined to the
+    // frozen predicate's positions): unused -> the body alone; used only at
+    // the current time-point -> plain LET; used under a temporal operator ->
+    // the per-outer-time-point mfrz runtime, with a bounded-past replay
+    // window when the body's temporal depth is finite.
+    int frz_occ = 0;
+    std::optional<std::size_t> frz_depth;
+    if (frz) {
+      frz_occ = frz_occurrence(*l.body, l.head.name, arity, false);
+      // Temporal-mode FRZ records the input batches it sees; inside a LETPAST
+      // definition the enclosing recursion evaluates with synthetic empty-ts
+      // batches carrying recursive predicate data, which the history cannot
+      // represent faithfully. Reject rather than risk wrong verdicts.
+      if (frz_occ >= 2 && in_letpast_bound_)
+        fail("FRZ with a temporally-used frozen predicate inside a LETPAST "
+             "definition is not supported");
+      if (frz_occ >= 2) {
+        frz_depth = frz_body_depth(*l.body);
+        // A body reading an enclosing-binder-bound predicate must replay from
+        // time-point 0: those database streams are positionally aligned from
+        // the start (and can lag behind the trace), so a windowed mid-stream
+        // start would misalign them.
+        if (frz_depth &&
+            references_bound_pred(*l.body, bound_scope_,
+                                  {l.head.name, arity}))
+          frz_depth.reset();
+      }
+    }
 
     // Bound-predicate column types come from the type checker.
     auto tit = let_param_types_.find(&l);
@@ -565,9 +759,15 @@ private:
       schema_[l.head.name] = param_types;
     };
 
-    if (past)
+    if (past) {
       bind_pred();
+      bound_scope_.push_back(pkey);  // recursive: in scope inside f1 too
+    }
+    bool saved_in_lp = in_letpast_bound_;
+    if (past)
+      in_letpast_bound_ = true;
     exformula_ptr f1 = translate(*l.bound);
+    in_letpast_bound_ = saved_in_lp;
     // PredL must match f1's actual output layout. Some operators (notably
     // aggregation) reassign a parameter's id during translation, so read the
     // ids back from the environment after f1 rather than trusting the shadow
@@ -575,8 +775,10 @@ private:
     std::vector<var_id> pred_layout;
     for (const auto &p : params)
       pred_layout.push_back(lookup_var(p));
-    if (!past)
+    if (!past) {
       bind_pred();
+      bound_scope_.push_back(pkey);
+    }
     for (auto &[name, old] : saved_vars) {
       if (old)
         vmap_[name] = *old;
@@ -584,6 +786,7 @@ private:
         vmap_.erase(name);
     }
     exformula_ptr f2 = translate(*l.body);
+    bound_scope_.pop_back();
 
     // Restore the predicate binding.
     pmap_.erase(pkey);
@@ -594,6 +797,20 @@ private:
     else
       schema_.erase(l.head.name);
 
+    if (frz) {
+      if (frz_occ == 0)
+        // The body never queries the frozen predicate: FRZ p = f1 IN f2 is
+        // equivalent to f2 (f1 stays translated above so its trace predicates
+        // are registered, but its node is dropped).
+        return f2;
+      if (frz_occ == 1)
+        // Every use is at the current time-point, where LET's per-index
+        // binding and FRZ's frozen relation agree.
+        return mk_exformula(
+          exformula{ex_let{false, lid, std::move(pred_layout), f1, f2}});
+      return mk_exformula(
+        exformula{ex_frz{lid, std::move(pred_layout), frz_depth, f1, f2}});
+    }
     return mk_exformula(
       exformula{ex_let{past, lid, std::move(pred_layout), f1, f2}});
   }
@@ -603,6 +820,12 @@ private:
   var_id curr_id_ = 1;
   std::map<std::string, var_id> vmap_;
   std::map<std::pair<std::string, std::size_t>, pred_id> pmap_;
+  // Binder-bound predicates currently in scope (LET/LETPAST/FRZ), innermost
+  // last; consulted by the FRZ window analysis.
+  std::vector<std::pair<std::string, std::size_t>> bound_scope_;
+  // Inside a LETPAST definition (its recursion feeds synthetic batches that
+  // temporal-mode FRZ cannot replay -- rejected there).
+  bool in_letpast_bound_ = false;
   std::vector<pred_info> predicates_;
 };
 

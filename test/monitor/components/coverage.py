@@ -22,7 +22,7 @@ KEYWORDS = {
     "AND", "OR", "NOT", "IMPLIES", "EQUIV", "EXISTS", "FORALL",
     "ONCE", "EVENTUALLY", "HISTORICALLY", "ALWAYS", "PAST_ALWAYS",
     "PREV", "PREVIOUS", "NEXT", "SINCE", "UNTIL", "TRIGGER", "RELEASE",
-    "LET", "LETPAST", "IN", "TRUE", "FALSE",
+    "LET", "LETPAST", "FRZ", "IN", "TRUE", "FALSE",
     "CNT", "SUM", "MIN", "MAX", "AVG", "MED", "MOD", "mod", "f2i", "i2f",
 }
 UNARY_TEMPORAL = {"ONCE", "EVENTUALLY", "HISTORICALLY", "ALWAYS", "PAST_ALWAYS",
@@ -123,7 +123,7 @@ class Parser:
 
     def prefix(self):
         v = self.val()
-        if v in ("LET", "LETPAST"):
+        if v in ("LET", "LETPAST", "FRZ"):
             return self.parse_let()
         # aggregation:  res <- OP var [; groups] body
         if self.kind() == "id" and self.peek(1)[1] == "<-":
@@ -167,7 +167,7 @@ class Parser:
         raise ValueError("expected predicate or comparison near %r" % (op,))
 
     def parse_let(self):
-        kind = self.next()[1]                 # LET | LETPAST
+        kind = self.next()[1]                 # LET | LETPAST | FRZ
         name = self.next()[1]
         self.eat("(")
         params = []
@@ -399,9 +399,23 @@ def extract(n, feats, adj, parent=None):
         extract(n.body, feats, adj, tag)
         return
     if k == "let":
-        feats.add("op:letpast" if n.letkind == "LETPAST" else "op:let")
-        if n.letkind == "LETPAST" and _refers(n.defn, n.name):
-            feats.add("letpast:recursive")
+        if n.letkind == "FRZ":
+            feats.add("op:frz")
+            use = _frz_use(n.body, n.name, False)
+            feats.add({0: "frz:unused", 1: "frz:current_only",
+                       2: "frz:temporal"}[use])
+            if _has_temporal(n.defn):
+                feats.add("frz:alpha_temporal")
+            if _has_frz(n.body):
+                feats.add("frz:nested")
+            if _has_let(n.body) and any(
+                    getattr(m, "letkind", None) in ("LET", "LETPAST")
+                    for m in _iter_lets(n.body)):
+                feats.add("frz:with_let")
+        else:
+            feats.add("op:letpast" if n.letkind == "LETPAST" else "op:let")
+            if n.letkind == "LETPAST" and _refers(n.defn, n.name):
+                feats.add("letpast:recursive")
         if _has_let(n.body):
             feats.add("let:nested")
         extract(n.defn, feats, adj, tag)
@@ -463,6 +477,34 @@ def _has_let(n):
     return False
 
 
+def _iter_lets(n):
+    if n.kind == "let":
+        yield n
+    for c in ("f", "l", "r", "body", "defn"):
+        if hasattr(n, c) and isinstance(getattr(n, c), N):
+            yield from _iter_lets(getattr(n, c))
+
+
+def _has_frz(n):
+    return any(m.letkind == "FRZ" for m in _iter_lets(n))
+
+
+def _frz_use(n, name, temporal):
+    """How the FRZ body uses the frozen predicate: 0 unused, 1 only at the
+    current time-point, 2 under a temporal operator (mirrors the translator's
+    frz_occurrence dispatch)."""
+    if n.kind == "pred" and n.name == name:
+        return 2 if temporal else 1
+    best = 0
+    for c in ("f", "l", "r", "body", "defn"):
+        if hasattr(n, c) and isinstance(getattr(n, c), N):
+            t = temporal or n.kind in ("untemp", "bintemp") or c == "defn"
+            shadowed = (n.kind == "let" and n.name == name and c == "body")
+            if not shadowed:
+                best = max(best, _frz_use(getattr(n, c), name, t))
+    return best
+
+
 def _refers(n, name):
     if n.kind == "pred" and n.name == name:
         return True
@@ -511,6 +553,9 @@ CHECKLIST = {
     # aggregation / let / quant shapes
     "agg:grouped", "agg:ungrouped", "agg:over_temporal",
     "let:nested", "letpast:recursive", "quant:multi",
+    # freeze operator shapes (op:frz + how the frozen predicate is used)
+    "op:frz", "frz:unused", "frz:current_only", "frz:temporal",
+    "frz:alpha_temporal", "frz:nested", "frz:with_let",
 }
 
 

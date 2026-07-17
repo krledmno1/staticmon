@@ -1,0 +1,1 @@
+FRZ q(x) = (EXISTS y. a(x,y)) IN (b(x) AND ONCE[0,*) q(x))

@@ -269,6 +269,10 @@ its fixtures offline (the only place the oracle runs).
    translation/codegen bugs the generated suites can't (their regen *drops* any
    formula staticmon fails to compile, so a regression would shrink them silently
    rather than fail).
+- `monitor_frz` *(monitor)* — the freeze-operator suite: MonPoly's 79 `frz*.t`
+   cram tests (fixtures generated with the formally verified VeriMon FRZ
+   implementation) plus hand-written edge cases (window boundaries, nesting,
+   future-lagging definitions); regenerated offline by `regen-frz.sh`.
 - `monitor_live` *(live)* — a live randomized differential test: generates random
    formulas + traces, compares staticmon to a user-provided VeriMon
    (`$STATICMON_VERIMON`), and reports structural coverage of the fragment.
@@ -303,10 +307,18 @@ Force a mode with `STATICMON_TEST_MODE=native|docker` (default `auto`).
   parse error, and a missing/unreadable log with `cannot open log file …` — both
   a non-zero exit, never a silent empty output or a crash.
 - Not yet supported by the front-end: regex operators (`MATCHF`/`MATCHP`),
-  `FRZ`, `SUBSTRING`/`MATCHES`, and the string/date conversions (`i2s`, `s2i`,
+  `SUBSTRING`/`MATCHES`, and the string/date conversions (`i2s`, `s2i`,
   `f2s`, `s2f`, `r2s`, `s2r`, `DAY_OF_MONTH`, `MONTH`, `YEAR`, `FORMAT_DATE`).
-  `LET`/`LETPAST` and all aggregations (`CNT`/`SUM`/`MIN`/`MAX`/`AVG`/`MED`)
-  are supported.
+  `LET`/`LETPAST`, `FRZ`, and all aggregations
+  (`CNT`/`SUM`/`MIN`/`MAX`/`AVG`/`MED`) are supported.
+- `FRZ p(x̄) = α IN β` (the freeze operator: within `β`, `p` denotes `α`'s
+  satisfactions frozen at the *outer* time-point, even under temporal
+  operators) follows MonPoly's optimized two-mode design: bodies that use `p`
+  only at the current time-point compile to the LET machinery; temporal uses
+  get a per-outer-time-point body sub-monitor, with the replay trimmed to a
+  bounded timestamp window when the body is purely bounded-past. One
+  restriction: a temporally-used `FRZ` inside a `LETPAST` definition is
+  rejected (VeriMon may accept it).
 - The native monitorability check does not yet apply MonPoly's full rewriting
   (`rr`) pass, so it can be slightly more conservative than `monpoly -check`
   (sound, never unsound).

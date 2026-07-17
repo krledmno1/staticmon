@@ -1,0 +1,1 @@
+FRZ q(x) = (a(x) AND NOT EXISTS y. b(x,y)) IN (c(x) AND ONCE[0,*) q(x))

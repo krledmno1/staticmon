@@ -1,0 +1,1 @@
+FRZ q(x,y,z) = a(x,y,z) IN (b(x) AND ONCE[0,*) q(x,y,z))

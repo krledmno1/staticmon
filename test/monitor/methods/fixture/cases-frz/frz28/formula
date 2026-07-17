@@ -1,0 +1,1 @@
+FRZ q(x) = a(x) IN EXISTS y. (q(x) AND q(y) AND b(y))

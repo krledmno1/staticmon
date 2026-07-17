@@ -1,0 +1,1 @@
+FRZ q(x,y) = e(x,y) IN EXISTS x. (q(x,y) AND f(y))

@@ -1,0 +1,1 @@
+FRZ T(x,y) = r(x,y) IN EXISTS y. ONCE[0,10] T(x,y)

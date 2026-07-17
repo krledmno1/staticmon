@@ -1,0 +1,1 @@
+FRZ q(x) = (a(x) AND b(x)) IN (ONCE[0,*) (c(x) AND q(x)))

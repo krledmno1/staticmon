@@ -1,0 +1,1 @@
+FRZ q(x) = (a(x) AND x > 5) IN (ONCE[0,*) (EXISTS y. (q(x) AND b(y) AND c(x,y))))

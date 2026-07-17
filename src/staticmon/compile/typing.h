@@ -409,14 +409,14 @@ private:
     throw type_error{"internal: predicate slot missing"};
   }
 
-  // LET/LETPAST typing (rewriting.ml Let/LetPast): f1 is typed with only the
-  // parameters in scope (they are exactly its free variables); the inferred
-  // parameter types become the bound predicate's signature, under which f2 is
-  // typed. Records the parameter types (keyed by the AST node) for the
-  // translator, which needs the bound predicate's concrete column types.
+  // LET/LETPAST/FRZ typing (rewriting.ml Let/LetPast/Frz): f1 is typed with
+  // only the parameters in scope (they are exactly its free variables); the
+  // inferred parameter types become the bound predicate's signature, under
+  // which f2 is typed. FRZ is non-recursive like LET (only the runtime index
+  // semantics differ), so it shares the LET rule. Records the parameter types
+  // (keyed by the AST node) for the translator, which needs the bound
+  // predicate's concrete column types.
   void type_check_let(const parser::fo_let &l) {
-    if (l.kind == parser::let_kind::frz)
-      throw type_error{"typing: FRZ is not supported"};
     std::vector<std::string> params;
     for (const auto &a : l.head.args) {
       const auto *var = std::get_if<parser::term_var>(&a.node);

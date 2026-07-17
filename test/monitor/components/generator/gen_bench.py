@@ -57,6 +57,38 @@ CURATED = [
     "LET A(x) = p(x) IN LET A(x) = q(x) IN A(x) AND A(x)",
     "LETPAST L(x) = p(x) OR (PREV L(x) AND q(x)) IN L(x)",
     "LETPAST L(x) = q(x) OR (PREV L(x)) IN L(x) AND p(x)",
+    # FRZ: the frozen predicate at the current time-point only (LET-equivalent)
+    "FRZ F(x) = p(x) IN F(x)",
+    "FRZ F(x) = p(x) IN F(x) AND q(x)",
+    "FRZ F(x) = p(x) IN F(x) AND ONCE[0,5] q(x)",
+    # FRZ temporal mode: frozen predicate under past operators
+    "FRZ F(x) = p(x) IN ONCE[0,5] F(x)",
+    "FRZ F(x) = p(x) IN q(x) AND ONCE[0,10] F(x)",
+    "FRZ F(x) = p(x) IN F(x) SINCE[0,5] q(x)",
+    "FRZ F(x) = p(x) IN q(x) SINCE[0,5] F(x)",
+    "FRZ T(x,y) = r(x,y) IN ONCE[0,4] T(x,y)",
+    # FRZ temporal mode: frozen predicate under future operators
+    "FRZ F(x) = p(x) IN EVENTUALLY[0,5] F(x)",
+    "FRZ F(x) = p(x) IN q(x) AND EVENTUALLY[0,3] F(x)",
+    "FRZ F(x) = p(x) IN F(x) UNTIL[0,4] q(x)",
+    # FRZ with PREV/NEXT (window-disabled paths)
+    "FRZ F(x) = p(x) IN PREV[0,5] F(x)",
+    "FRZ F(x) = p(x) IN NEXT[0,5] F(x)",
+    # frozen definition with temporal operators (alpha lags / leads)
+    "FRZ F(x) = (ONCE[0,5] p(x)) IN ONCE[0,3] F(x)",
+    "FRZ F(x) = (EVENTUALLY[0,3] p(x)) IN ONCE[0,3] F(x)",
+    "FRZ F(x) = (EVENTUALLY[0,3] p(x)) IN EVENTUALLY[0,3] F(x)",
+    # unused frozen predicate (elided body)
+    "FRZ F(x) = p(x) IN q(y)",
+    # shadowing a signature predicate
+    "FRZ p(x) = q(x) IN ONCE[0,5] p(x)",
+    # nesting: FRZ in FRZ, FRZ with LET (both orders)
+    "FRZ F(x) = p(x) IN FRZ G(x) = q(x) IN ONCE[0,5] (F(x) AND G(x))",
+    "FRZ F(x) = p(x) IN ONCE[0,3] (FRZ G(x) = F(x) IN ONCE[0,3] G(x))",
+    "LET U(x) = q(x) IN FRZ F(x) = U(x) IN ONCE[0,5] F(x)",
+    "FRZ F(x) = p(x) IN LET U(x) = F(x) AND q(x) IN ONCE[0,5] U(x)",
+    # aggregation over a frozen predicate
+    "FRZ F(x) = p(x) IN c <- CNT x ONCE[0,5] F(x)",
     # --- deviation D1: div / mod / conversions inside constraints ---
     "r(x,y) AND z = x + y", "r(x,y) AND z = x - y",
     "r(x,y) AND z = x * y",
@@ -105,6 +137,33 @@ LETS = [
     "LET T(x,y) = r(x,y) IN ONCE[0,3] T(x,y)",
     "LETPAST L(x) = p(x) OR (PREV L(x) AND q(x)) IN L(x)",
 ]
+
+
+def frz(depth):
+    """A random FRZ formula: freeze a random (possibly temporal) definition and
+    use it in a random body position -- current-time, past, future, PREV/NEXT,
+    nested in another binder -- so all three translation modes are hit."""
+    name = rng.choice(["F", "G"])
+    alpha = rng.choice(["p(x)", "q(x)", "(p(x) AND q(x))",
+                        "(ONCE[0,4] p(x))", "(EVENTUALLY[0,3] p(x))",
+                        "(p(x) AND NOT q(x))"])
+    body = rng.choice([
+        f"{name}(x)",
+        f"{name}(x) AND q(x)",
+        f"ONCE{_interval(False)} {name}(x)",
+        f"q(x) AND ONCE[0,6] {name}(x)",
+        f"{name}(x) SINCE[0,5] q(x)",
+        f"q(x) SINCE[0,5] {name}(x)",
+        f"EVENTUALLY[0,4] {name}(x)",
+        f"{name}(x) UNTIL[0,4] q(x)",
+        f"PREV[0,5] {name}(x)",
+        f"NEXT[0,4] {name}(x)",
+        f"ONCE[0,5] ({name}(x) AND q(x))",
+        f"c <- CNT x ONCE[0,5] {name}(x)",
+        f"FRZ G2(x) = q(x) IN ONCE[0,4] ({name}(x) AND G2(x))",
+        f"LET U2(x) = {name}(x) AND q(x) IN ONCE[0,4] U2(x)",
+    ])
+    return f"(FRZ {name}(x) = {alpha} IN {body})"
 AGGS = [
     "c <- CNT x; y r(x,y)", "c <- CNT x r(y,x)", "m <- SUM x; y r(y,x)",
     "m <- MIN x r(y,x)", "m <- MAX x; y r(y,x)", "avg <- AVG x; y r(y,x)",
@@ -143,8 +202,10 @@ def small(depth):
         return rng.choice(SINCEUNTIL)
     if r < 0.76:
         return f"(EXISTS {'x' if rng.random() < 0.6 else 'x, y'}. {small(depth-1)})"
-    if r < 0.88:
+    if r < 0.84:
         return rng.choice(LETS)
+    if r < 0.92:
+        return frz(depth - 1)
     return rng.choice(AGGS)
 
 

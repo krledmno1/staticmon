@@ -1,0 +1,1 @@
+FRZ q(x) = ((a(x) AND b(x)) OR (c(x) AND NOT d(x))) IN (e(x) AND ONCE[0,*) q(x))

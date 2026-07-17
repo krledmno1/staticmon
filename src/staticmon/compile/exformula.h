@@ -176,11 +176,27 @@ struct ex_let {
   exformula_ptr body;               // f2 (uses the bound predicate)
 };
 
+// FRZ in temporal mode: the bound predicate is used under a temporal operator
+// in the body, so its relation must stay frozen at the outer time-point (a
+// fresh body sub-monitor per outer time-point at runtime). FRZ whose body uses
+// the predicate only at the current time-point coincides with LET and is
+// translated to ex_let instead; FRZ whose body never uses it is elided.
+struct ex_frz {
+  pred_id id;
+  std::vector<var_id> pred_layout;
+  // Bounded-past replay window in timestamp units (MonPoly's body_depth):
+  // set only when the body is purely bounded-past (no PREV/NEXT, no future
+  // operators, no nested binders/regex); nullopt = replay the whole prefix.
+  std::optional<std::size_t> depth;
+  exformula_ptr bound;  // f1 (frozen at the outer time-point)
+  exformula_ptr body;   // f2
+};
+
 struct exformula {
   std::variant<ex_predicate, ex_builtin_tp, ex_builtin_ts, ex_builtin_tpts,
                ex_and, ex_or, ex_neg, ex_eq, ex_empty_rel, ex_temporal_un,
                ex_since, ex_once_agg, ex_since_agg, ex_aggregation, ex_fused,
-               ex_let>
+               ex_let, ex_frz>
     node;
 };
 

@@ -1,0 +1,1 @@
+FRZ q(x) = a(x) IN (a(x) AND (EVENTUALLY[0,5] ((q(x) AND b(y)) AND 0 < x)))

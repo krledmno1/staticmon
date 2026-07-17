@@ -100,9 +100,12 @@ private:
   };
 
   struct discard_tup_list {
-    RULE dsl::list(dsl::peek_not(dsl::ascii::alpha_digit_underscore /
-                                 dsl::semicolon) >>
-                   dsl::p<discard_tuple>);
+    // Zero or more '(...)' tuples. The continuation must peek for a real '(':
+    // peek_not(alpha/semicolon) also succeeds at the end of the time-point
+    // chunk (nothing ahead), which made an unknown predicate's tuple at chunk
+    // end demand yet another tuple -- classic MonPoly traces (no trailing ';',
+    // events of undeclared predicates) end exactly like that.
+    RULE dsl::opt(dsl::list(dsl::peek(dsl::lit_c<'('>) >> dsl::p<discard_tuple>));
     VALUE lexy::noop;  // discard: lexy >= 2025 needs a sink for list productions
   };
 

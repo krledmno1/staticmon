@@ -1,0 +1,1 @@
+FRZ q(x) = a(x) IN (b(x) UNTIL[0,10] (c(x) AND q(x)))

@@ -1,0 +1,1 @@
+LET U(x) = ONCE[0,25] q(x) IN FRZ F(x) = p(x) IN ONCE[0,10] (F(x) AND U(x))

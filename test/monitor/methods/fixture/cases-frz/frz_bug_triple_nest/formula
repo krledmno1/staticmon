@@ -1,0 +1,1 @@
+FRZ q(x) = a(x) IN FRZ r(y) = b(y) IN FRZ s(z) = c(z) IN (ONCE[0,*) (q(x) AND r(y) AND s(z)))

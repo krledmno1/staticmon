@@ -1,0 +1,1 @@
+FRZ q(x) = ((a(x) SINCE[0,*) b(x)) AND NOT c(x)) IN (d(x) AND ONCE[0,*) q(x))

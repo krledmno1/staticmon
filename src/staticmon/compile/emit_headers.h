@@ -254,11 +254,20 @@ private:
             s += (i ? ", " : "") + render_sop(v.sops[i]);
           s += ">, " + render_formula(*v.arg) + ">";
           return s;
-        } else {  // ex_let
+        } else if constexpr (std::is_same_v<T, ex_let>) {
           return std::string(v.past ? "mletpast<" : "mlet<") +
                  std::to_string(v.id) + ", " + render_var_list(v.pred_layout) +
                  ", " + render_formula(*v.bound) + ", " +
                  render_formula(*v.body) + ">";
+        } else {  // ex_frz
+          // Depth: bounded-past replay window in ts units; frz_no_depth
+          // (SIZE_MAX) replays the whole prefix.
+          std::string d = v.depth ? std::to_string(*v.depth) + "UL"
+                                  : std::string("frz_no_depth");
+          return "mfrz<" + std::to_string(v.id) + ", " +
+                 render_var_list(v.pred_layout) + ", " + d + ", " +
+                 render_formula(*v.bound) + ", " + render_formula(*v.body) +
+                 ">";
         }
       },
       f.node);

@@ -41,7 +41,11 @@ add_test(NAME monitor_corpus
 # cannot cover (regen drops formulas staticmon fails to compile).
 add_test(NAME monitor_regression
          COMMAND bash "${TD}/monitor/methods/fixture/run.sh" cases-regression "$<TARGET_FILE:staticmon-headers>")
-set_tests_properties(monitor_generated monitor_corpus monitor_regression
+# The FRZ operator suite, adopted from MonPoly's frz*.t cram tests (fixtures
+# generated with the verified VeriMon FRZ implementation; regen-frz.sh).
+add_test(NAME monitor_frz
+         COMMAND bash "${TD}/monitor/methods/fixture/run.sh" cases-frz "$<TARGET_FILE:staticmon-headers>")
+set_tests_properties(monitor_generated monitor_corpus monitor_regression monitor_frz
                      PROPERTIES LABELS monitor FIXTURES_REQUIRED bench SKIP_RETURN_CODE 77)
 
 # ---- monitor live : random formulas vs a USER-PROVIDED VeriMon --------------

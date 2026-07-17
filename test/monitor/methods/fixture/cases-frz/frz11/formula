@@ -1,0 +1,1 @@
+LET q(x) = a(x) IN FRZ q(x) = q(x) IN q(x) AND b(x)

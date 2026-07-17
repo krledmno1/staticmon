@@ -1,0 +1,1 @@
+FRZ F(x) = p(x) IN ONCE[0,10] (FRZ G(x) = (F(x) OR q(x)) IN ONCE[0,10] G(x))

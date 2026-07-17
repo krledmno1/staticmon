@@ -1,0 +1,1 @@
+FRZ q(x) = (a(x) AND x > 1 AND x < 4) IN (b(x) AND ONCE[0,*) q(x))
