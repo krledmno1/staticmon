@@ -1,0 +1,1 @@
+FRZ F(x) = p(x) IN FRZ G(x) = q(x) IN FRZ H(x) = (F(x) AND G(x)) IN q(x) AND ONCE[0,6] H(x)

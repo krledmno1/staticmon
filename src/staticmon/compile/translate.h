@@ -336,13 +336,31 @@ private:
       f.node);
   }
 
-  // MonPoly's body_depth (algorithm.ml): the furthest timestamp-distance the
-  // FRZ body can look into the past, defined only for purely bounded-past
-  // bodies -- boolean/quantifier/aggregation structure over atoms and
-  // ONCE/SINCE with finite interval upper bounds. PREV/NEXT (time-point
-  // relative), future operators, nested binders and regex disable the window
-  // (nullopt = replay the whole prefix).
-  static std::optional<std::size_t> frz_body_depth(const parser::formula &f) {
+  // Depth contribution of referencing a predicate bound INSIDE the analyzed
+  // body (its definition is recomputed by the replay, so its temporal reach
+  // flows into the reference). Predicates absent from the map contribute 0:
+  // trace predicates, the frozen predicate's broadcast, and (lag-free)
+  // enclosing binders, whose values are recorded data in the replayed history,
+  // never recomputed. A nullopt VALUE means any reference makes the depth
+  // unbounded (LETPAST: the recursion reaches arbitrarily far back).
+  using depth_env = std::map<std::pair<std::string, std::size_t>,
+                             std::optional<std::size_t>>;
+
+  // The furthest timestamp-distance the FRZ body can look into the past
+  // (MonPoly's body_depth, extended compositionally through nested binders --
+  // docs/optimization-plan.md, opt B): boolean/quantifier/aggregation
+  // structure over atoms, ONCE/SINCE with finite interval upper bounds, and
+  //   - nested FRZ p = a IN b: max(depth a, depth b with p -> 0) -- the frozen
+  //     p is CONSTANT at the node's index, so temporal operators over it add
+  //     no data reach beyond a at that index;
+  //   - nested LET p = a IN b: depth b with p -> depth a -- a p-atom at
+  //     temporal offset o contributes o + depth a (p@j = a@j, recomputed by
+  //     the instance from replayed data);
+  //   - nested LETPAST: p -> unbounded.
+  // PREV/NEXT (time-point relative), future operators and regex disable the
+  // window (nullopt = replay the whole prefix).
+  static std::optional<std::size_t> frz_body_depth(const parser::formula &f,
+                                                   const depth_env &env) {
     using namespace parser;
     auto ub = [](const interval &i) -> std::optional<std::size_t> {
       return std::visit(
@@ -364,17 +382,22 @@ private:
     return std::visit(
       [&](const auto &v) -> std::optional<std::size_t> {
         using T = std::remove_cvref_t<decltype(v)>;
-        if constexpr (std::is_same_v<T, fo_pred> || std::is_same_v<T, fo_cmp> ||
-                      std::is_same_v<T, fo_matches>) {
+        if constexpr (std::is_same_v<T, fo_pred>) {
+          auto it = env.find({v.name, v.args.size()});
+          if (it == env.end())
+            return 0;  // trace / frozen / enclosing (recorded data)
+          return it->second;  // body-bound: its definition's reach (or nullopt)
+        } else if constexpr (std::is_same_v<T, fo_cmp> ||
+                             std::is_same_v<T, fo_matches>) {
           return 0;
         } else if constexpr (std::is_same_v<T, fo_neg>) {
-          return frz_body_depth(*v.arg);
+          return frz_body_depth(*v.arg, env);
         } else if constexpr (std::is_same_v<T, fo_quant>) {
-          return frz_body_depth(*v.body);
+          return frz_body_depth(*v.body, env);
         } else if constexpr (std::is_same_v<T, fo_agg>) {
-          return frz_body_depth(*v.body);
+          return frz_body_depth(*v.body, env);
         } else if constexpr (std::is_same_v<T, fo_prop>) {
-          auto a = frz_body_depth(*v.l), b = frz_body_depth(*v.r);
+          auto a = frz_body_depth(*v.l, env), b = frz_body_depth(*v.r, env);
           if (a && b)
             return std::max(*a, *b);
           return std::nullopt;
@@ -382,7 +405,7 @@ private:
           if (v.op != temporal_unop::once)
             return std::nullopt;  // prev/next/eventually (post-desugar set)
           auto u = ub(v.intv);
-          auto d = frz_body_depth(*v.body);
+          auto d = frz_body_depth(*v.body, env);
           if (u && d)
             return *u + *d;
           return std::nullopt;
@@ -390,11 +413,39 @@ private:
           if (v.op != temporal_binop::since)
             return std::nullopt;
           auto u = ub(v.intv);
-          auto a = frz_body_depth(*v.l), b = frz_body_depth(*v.r);
+          auto a = frz_body_depth(*v.l, env), b = frz_body_depth(*v.r, env);
           if (u && a && b)
             return *u + std::max(*a, *b);
           return std::nullopt;
-        } else {  // fo_let (nested binders), fo_regex
+        } else if constexpr (std::is_same_v<T, fo_let>) {
+          std::pair<std::string, std::size_t> key{v.head.name,
+                                                  v.head.args.size()};
+          if (v.kind == let_kind::frz) {
+            // The inner frozen predicate is constant at the node's index:
+            // references cost 0, and the node's own reach is the larger of
+            // the definition's and the body's.
+            auto da = frz_body_depth(*v.bound, env);
+            depth_env e2 = env;
+            e2[key] = std::size_t{0};
+            auto db = frz_body_depth(*v.body, e2);
+            if (da && db)
+              return std::max(*da, *db);
+            return std::nullopt;
+          }
+          if (v.kind == let_kind::let) {
+            // p@j = a@j, recomputed from replayed data: each reference
+            // contributes the definition's reach at its temporal offset.
+            auto da = frz_body_depth(*v.bound, env);
+            depth_env e2 = env;
+            e2[key] = da;  // nullopt definition -> unbounded on reference
+            return frz_body_depth(*v.body, e2);
+          }
+          // LETPAST: the recursion reaches arbitrarily far back; any
+          // reference is unbounded (an unreferenced definition is harmless).
+          depth_env e2 = env;
+          e2[key] = std::nullopt;
+          return frz_body_depth(*v.body, e2);
+        } else {  // fo_regex
           return std::nullopt;
         }
       },
@@ -754,7 +805,7 @@ private:
         fail("FRZ with a temporally-used frozen predicate inside a LETPAST "
              "definition is not supported");
       if (frz_occ >= 2) {
-        frz_depth = frz_body_depth(*l.body);
+        frz_depth = frz_body_depth(*l.body, {});
         // A body reading a LAGGING enclosing-binder-bound predicate must
         // replay from time-point 0: a lagging stream is positional (aligned
         // from the start, with fewer entries per batch than time-points until

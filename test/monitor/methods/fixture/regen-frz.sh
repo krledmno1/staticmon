@@ -90,6 +90,9 @@ x_lag_trap|FRZ P2(x) = (EVENTUALLY[0,2] p(x)) IN FRZ G(x) = q(x) IN P2(x) AND ON
 x_lag_control|FRZ P2(x) = (ONCE[0,2] p(x)) IN FRZ G(x) = q(x) IN P2(x) AND ONCE[0,3] G(x)
 x_enclosing_future_let|LET U(x) = EVENTUALLY[0,5] q(x) IN FRZ F(x) = p(x) IN ONCE[0,3] (F(x) AND U(x))
 x_win_edge15|FRZ F(x) = p(x) IN q(x) AND ONCE[0,15] F(x)
+x_depth_let_add|FRZ F(x) = p(x) IN LET U(x) = (F(x) AND ONCE[0,5] q(x)) IN q(x) AND ONCE[0,10] U(x)
+x_depth_inner_alpha|FRZ F(x) = p(x) IN FRZ G(x) = (ONCE[0,7] q(x)) IN q(x) AND ONCE[0,4] (F(x) AND G(x))
+x_depth_deep_window|FRZ F(x) = p(x) IN FRZ G(x) = q(x) IN FRZ H(x) = (F(x) AND G(x)) IN q(x) AND ONCE[0,6] H(x)
 EOF
 }
 xkept=0
