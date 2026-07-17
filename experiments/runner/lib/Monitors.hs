@@ -278,7 +278,15 @@ staticmon = Monitor {..}
             )
             >>= \case
               Left err -> return (Left err)
-              Right _ -> return (Right outbin)
+              Right _ ->
+                -- Untimed warm-up on the freshly copied binary: macOS validates
+                -- a new executable inode's code signature on its FIRST exec
+                -- (~0.2s, cached per inode afterwards), which would otherwise
+                -- be billed to the first timed run. An empty trace exercises
+                -- exec + dyld + the validation without doing monitoring work.
+                runDiscard outbin ["--log", "/dev/null"] >>= \case
+                  Left err -> return (Left err)
+                  Right _ -> return (Right outbin)
 
     runBenchmark exe _ _ l =
       benchmark (runDiscard exe ["--log", l])
