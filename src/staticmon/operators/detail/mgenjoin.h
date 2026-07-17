@@ -129,6 +129,30 @@ struct mgenjoin<mp_list<Pos0, Pos...>, mp_list<Neg...>> {
   static constexpr std::size_t local_col =
     mp_find<child_projL<I>, mp_at_c<Order, D>>::value;
 
+  // ---- negatives as check-only vetoes (WP-J3, verified rule 3.3) ----------
+  // Each negative probes at its "coverage depth": the depth at which the last
+  // of its columns is bound, i.e. the max Order-index over its variables
+  // (RANF guarantees they are all in Order -- get_reorder_mask static-asserts
+  // it). At that depth the bound tuple is projected onto the negative's
+  // layout and looked up; a hit vetoes the partial binding before any deeper
+  // enumeration. Nullary negatives (no columns) are handled by a pre-check.
+  template<std::size_t J>
+  using neg_f = mp_at_c<mp_list<Neg...>, J>;
+  template<typename V>
+  using order_idx = mp_find<Order, V>;
+  template<typename A, typename B>
+  using idx_max = mp_size_t<(A::value > B::value ? A::value : B::value)>;
+  template<std::size_t J>
+  static constexpr std::size_t neg_cov_depth =
+    mp_fold<mp_transform<order_idx, typename neg_f<J>::ResL>, mp_size_t<0>,
+            idx_max>::value;
+  template<std::size_t J>
+  using neg_probe_mask =
+    table_util::get_reorder_mask<Order, typename neg_f<J>::ResL>;
+  template<std::size_t J>
+  static constexpr bool neg_is_nullary =
+    mp_empty<typename neg_f<J>::ResL>::value;
+
   std::vector<std::optional<res_tab_t>> eval(database &db, const ts_list &ts) {
     // Evaluate every child on the batch, appending outputs to its queue
     // (children progress independently; queues align them positionally, the
@@ -171,12 +195,12 @@ private:
 #ifdef STATICMON_GENJOIN_FOLD
     auto joined =
       fold_pos<1, typename Pos0::ResL>(std::move(*std::get<0>(fronts)), fronts);
-#else
-    res_tab_t joined = leapfrog_join(fronts);
-#endif
     if (joined.empty())
       return std::nullopt;
     apply_negs<0>(joined, fronts);
+#else
+    res_tab_t joined = leapfrog_join(fronts);  // negatives vetoed in-descent
+#endif
     if (joined.empty())
       return std::nullopt;
     return joined;
@@ -200,6 +224,22 @@ private:
 
   template<typename Fronts>
   res_tab_t leapfrog_join(const Fronts &fronts) {
+    res_tab_t out;
+    // Pre-check nullary negatives: if any holds (its arity-0 relation is
+    // present), it vetoes every tuple -- the whole cluster is empty.
+    bool nullary_veto = false;
+    [&]<std::size_t... Js>(std::index_sequence<Js...>) {
+      (([&] {
+         if constexpr (neg_is_nullary<Js>) {
+           const auto &nt = std::get<n_pos + Js>(fronts);
+           if (nt && !nt->empty())
+             nullary_veto = true;
+         }
+       }()),
+       ...);
+    }(std::index_sequence_for<Neg...>{});
+    if (nullary_veto)
+      return out;
     auto tries = [&]<std::size_t... Is>(std::index_sequence<Is...>) {
       return std::tuple(build_trie<Is>(std::get<Is>(fronts))...);
     }(std::make_index_sequence<n_pos>{});
@@ -207,10 +247,30 @@ private:
     [&]<std::size_t... Is>(std::index_sequence<Is...>) {
       ((rg[Is] = {0, std::get<Is>(tries).size()}), ...);
     }(std::make_index_sequence<n_pos>{});
-    res_tab_t out;
     BoundT bound;
-    enumerate<0>(rg, bound, out, tries);
+    enumerate<0>(rg, bound, out, tries, fronts);
     return out;
+  }
+
+  // Veto check for negatives whose coverage depth is exactly D: probe each
+  // one's (present) table with the bound tuple projected onto its layout.
+  template<std::size_t D, typename Fronts>
+  static bool neg_vetoed(const BoundT &bound, const Fronts &fronts) {
+    bool vetoed = false;
+    [&]<std::size_t... Js>(std::index_sequence<Js...>) {
+      (([&] {
+         if constexpr (!neg_is_nullary<Js> && neg_cov_depth<Js> == D) {
+           const auto &nt = std::get<n_pos + Js>(fronts);
+           if (nt) {
+             typename neg_f<Js>::ResT key(project_row<neg_probe_mask<Js>>(bound));
+             if (nt->contains(key))
+               vetoed = true;
+           }
+         }
+       }()),
+       ...);
+    }(std::index_sequence_for<Neg...>{});
+    return vetoed;
   }
 
   // Recursive descent over the attribute order. At depth D the participating
@@ -218,9 +278,9 @@ private:
   // Order[D]: repeatedly seek every participant to the current maximum key
   // until all agree, recurse on the narrowed equal-ranges, then advance past
   // the matched value.
-  template<std::size_t D, typename Tries>
+  template<std::size_t D, typename Tries, typename Fronts>
   void enumerate(const ranges_t &rg, BoundT &bound, res_tab_t &out,
-                 const Tries &tries) {
+                 const Tries &tries, const Fronts &fronts) {
     if constexpr (D == n_depth) {
       out.emplace(project_row<out_mask>(bound));
     } else {
@@ -301,7 +361,10 @@ private:
            }()),
            ...);
         }(std::make_index_sequence<n_pos>{});
-        enumerate<D + 1>(sub, bound, out, tries);
+        // veto-at-coverage: a negative newly covered at this depth prunes the
+        // whole subtree before it is enumerated (rule 3.3)
+        if (!neg_vetoed<D>(bound, fronts))
+          enumerate<D + 1>(sub, bound, out, tries, fronts);
         // advance every participant past the matched value and continue
         [&]<std::size_t... Is>(std::index_sequence<Is...>) {
           (([&] {

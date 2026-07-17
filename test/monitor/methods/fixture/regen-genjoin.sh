@@ -65,6 +65,7 @@ jneg_needs_union|(p(x,y) AND q(y,z)) AND (NOT s(x,z))
 jneg_two|((p(x,y) AND q(y,z)) AND (NOT s(x,z))) AND (NOT s(y,y))
 jneg_eq_positive|(p(x,y) AND q(x,y)) AND (NOT p(x,y))
 jneg_unary|(u(x) AND p(x,y)) AND (NOT v(y))
+jneg_nullary|((u(x) AND p(x,y)) AND s(x,y)) AND (NOT e())
 jeq_const|(p(x,y) AND q(y,z)) AND x = 1
 jeq_vars|(p(x,y) AND q(y,z)) AND x = z
 jassign|(p(x,y) AND q(y,z)) AND w = x + z
