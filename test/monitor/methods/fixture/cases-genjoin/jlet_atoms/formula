@@ -1,0 +1,1 @@
+LET pq(x,y,z) = p(x,y) AND q(y,z) IN (pq(x,y,z) AND s(x,z)) AND (NOT u(x))

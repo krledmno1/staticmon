@@ -1,0 +1,1 @@
+FRZ F(t1,x) = p(t1,x) IN ((ONCE[0,6] F(t1,x)) AND (ONCE[0,6] q(t2,x))) AND (NOT s(t1,t2))

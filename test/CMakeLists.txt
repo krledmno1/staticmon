@@ -45,7 +45,11 @@ add_test(NAME monitor_regression
 # generated with the verified VeriMon FRZ implementation; regen-frz.sh).
 add_test(NAME monitor_frz
          COMMAND bash "${TD}/monitor/methods/fixture/run.sh" cases-frz "$<TARGET_FILE:staticmon-headers>")
-set_tests_properties(monitor_generated monitor_corpus monitor_regression monitor_frz
+# Conjunction-cluster suite for the generic multiway-join work (expected
+# verdicts from VeriMon's formally verified generic join; regen-genjoin.sh).
+add_test(NAME monitor_genjoin
+         COMMAND bash "${TD}/monitor/methods/fixture/run.sh" cases-genjoin "$<TARGET_FILE:staticmon-headers>")
+set_tests_properties(monitor_generated monitor_corpus monitor_regression monitor_frz monitor_genjoin
                      PROPERTIES LABELS monitor FIXTURES_REQUIRED bench SKIP_RETURN_CODE 77)
 
 # ---- monitor live : random formulas vs a USER-PROVIDED VeriMon --------------

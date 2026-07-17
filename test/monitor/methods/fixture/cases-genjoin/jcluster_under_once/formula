@@ -1,0 +1,1 @@
+ONCE[0,4] ((p(x,y) AND q(y,z)) AND (NOT s(x,z)))

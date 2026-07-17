@@ -1,0 +1,1 @@
+((ONCE[0,5] p(t1,x)) AND (ONCE[0,5] q(t2,x))) AND (NOT s(t1,t2))

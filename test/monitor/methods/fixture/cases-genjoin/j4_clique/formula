@@ -1,0 +1,1 @@
+((p(a,b) AND q(b,c)) AND s(a,c)) AND p(a,c)

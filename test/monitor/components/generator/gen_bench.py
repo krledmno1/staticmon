@@ -139,6 +139,46 @@ LETS = [
 ]
 
 
+def cluster(depth):
+    """A random conjunction cluster -- the shapes the generic multiway-join
+    pass (docs/LFTJ-STATICMON.md) may rewrite: k positive atoms with random
+    variable patterns, optionally a covered negative and/or a constraint,
+    optionally temporal children."""
+    atoms_pool = [
+        ("r({},{})", 2), ("s({},{})", 2), ("p({})", 1), ("q({})", 1),
+    ]
+    vars_pool = ["x", "y", "z", "w"]
+    k = rng.randint(2, 4)
+    used = []
+    atoms = []
+    for i in range(k):
+        pat, ar = rng.choice(atoms_pool)
+        # bias towards sharing: reuse a known var with high probability
+        vs = []
+        for _ in range(ar):
+            if used and rng.random() < 0.8:
+                vs.append(rng.choice(used))
+            else:
+                v = rng.choice(vars_pool)
+                vs.append(v)
+            if vs[-1] not in used:
+                used.append(vs[-1])
+        a = pat.format(*vs)
+        if rng.random() < 0.25:
+            a = f"(ONCE[0,4] {a})"
+        atoms.append(a)
+    f = atoms[0]
+    for a in atoms[1:]:
+        f = f"({f} AND {a})"
+    # covered negative: over vars already bound by the positives
+    if rng.random() < 0.5 and len(used) >= 2:
+        a, b = rng.sample(used, 2)
+        f = f"({f} AND (NOT {rng.choice(['r', 's'])}({a},{b})))"
+    if rng.random() < 0.3:
+        f = f"({f} AND {rng.choice(used)} = {rng.randint(0, 5)})"
+    return f
+
+
 def frz(depth):
     """A random FRZ formula: freeze a random (possibly temporal) definition and
     use it in a random body position -- current-time, past, future, PREV/NEXT,
@@ -202,10 +242,12 @@ def small(depth):
         return rng.choice(SINCEUNTIL)
     if r < 0.76:
         return f"(EXISTS {'x' if rng.random() < 0.6 else 'x, y'}. {small(depth-1)})"
-    if r < 0.84:
+    if r < 0.82:
         return rng.choice(LETS)
-    if r < 0.92:
+    if r < 0.88:
         return frz(depth - 1)
+    if r < 0.94:
+        return cluster(depth - 1)
     return rng.choice(AGGS)
 
 
