@@ -349,6 +349,39 @@ $( deriveJSON
      ''TemporalConfig
  )
 
+-- FRZ microbenchmarks: freeze P at the outer time-point and use it in a body
+-- shape that exercises one runtime mode each (see src/staticmon/operators/
+-- detail/mfrz.h): FrzCurrent -> the LET-equivalent path; FrzOnce/FrzSince ->
+-- per-instance replay (bounded window when the interval is bounded, whole
+-- prefix when infinite); FrzEventually -> persistent future instances;
+-- FrzNested -> an inner freeze inside each outer instance.
+data FrzBody = FrzCurrent | FrzOnce | FrzSince | FrzEventually | FrzNested
+  deriving (Show)
+
+$( deriveJSON
+     defaultOptions
+       { constructorTagModifier = map toLower,
+         sumEncoding = ObjectWithSingleField
+       }
+     ''FrzBody
+ )
+
+data FrzConfig = FrzConfig
+  { fz_eventrate :: Int,
+    fz_ubound :: TemporalBound, -- upper bound of the body's interval [0,b]
+    fz_body :: FrzBody
+  }
+  deriving (Show)
+
+$( deriveJSON
+     defaultOptions
+       { fieldLabelModifier = drop 3,
+         constructorTagModifier = map toLower,
+         sumEncoding = ObjectWithSingleField
+       }
+     ''FrzConfig
+ )
+
 data OperatorConfig
   = AndOperator AndConfig
   | OrOperator OrConfig
@@ -356,6 +389,7 @@ data OperatorConfig
   | ExistsOperator ExistsConfig
   | TemporalOperator TemporalConfig
   | OnceAndEqOperator OnceAndEqConfig
+  | FrzOperator FrzConfig
   deriving (Show)
 
 $( deriveJSON
@@ -473,7 +507,8 @@ data BenchFeatures = BenchFeatures
   { usesFuture :: Bool, -- next / eventually / until
     usesTwoSidedInterval :: Bool, -- [l,u] with l>0 and u finite
     usesMetricPrev :: Bool, -- previous with a non-trivial interval
-    usesAggregation :: Bool -- SUM/CNT/... (none in the microbenchmarks)
+    usesAggregation :: Bool, -- SUM/CNT/... (none in the microbenchmarks)
+    usesFrz :: Bool -- the freeze operator (staticmon/monpoly/verimon only)
   }
 
 benchFeatures :: OperatorBenchmark -> BenchFeatures
@@ -487,9 +522,14 @@ benchFeatures OperatorBenchmark {..} =
         EventuallyOperator _ -> base {usesFuture = True}
         NextOperator _ -> base {usesFuture = True}
         UntilOperator _ -> base {usesFuture = True}
+    FrzOperator FrzConfig {..} ->
+      base
+        { usesFrz = True,
+          usesFuture = case fz_body of FrzEventually -> True; _ -> False
+        }
     _ -> base -- And / Or / AntiJoin / Exists / OnceAndEq: pure past FO
   where
-    base = BenchFeatures False False False False
+    base = BenchFeatures False False False False False
     twoSided (CstBound l) (CstBound _) = l > 0
     twoSided _ _ = False
     untimed (CstBound 0) InfBound = True
@@ -506,6 +546,7 @@ benchCost OperatorBenchmark {..} = op_numts * op_numtpperts * max 1 (cfgSize op_
     cfgSize (AntiJoinOperator AntiJoinConfig {..}) = aj_lsize + aj_rsize
     cfgSize (ExistsOperator ExistsConfig {..}) = ex_size
     cfgSize (OnceAndEqOperator OnceAndEqConfig {..}) = oa_eventrate
+    cfgSize (FrzOperator FrzConfig {..}) = fz_eventrate
     cfgSize (TemporalOperator TemporalConfig {..}) = subSize tc_suboperator
     subSize (OnceOperator OnceConfig {..}) = oc_eventrate
     subSize (EventuallyOperator EventuallyConfig {..}) = ev_eventrate
@@ -576,6 +617,20 @@ getBenchName OperatorBenchmark {..} =
             "once_and_not_"
               +| oa_eventrate
               |+ ""
+          FrzOperator FrzConfig {..} ->
+            let bodyname :: Builder = case fz_body of
+                  FrzCurrent -> "current"
+                  FrzOnce -> "once"
+                  FrzSince -> "since"
+                  FrzEventually -> "eventually"
+                  FrzNested -> "nested"
+             in "frz_"
+                  +| bodyname
+                  |+ "_"
+                  +| fz_ubound
+                  |+ "_"
+                  +| fz_eventrate
+                  |+ ""
           TemporalOperator TemporalConfig {..} ->
             case tc_suboperator of
               PrevOperator PrevConfig {..} ->
@@ -972,6 +1027,41 @@ temporalBenchGen log_f sig_f fo_f nts ntp TemporalConfig {..} =
             siut_rmp = ut_removeprobability
           }
 
+-- FRZ benchmark: freeze P(x0) at each outer time-point; the body shape picks
+-- the runtime mode under test. The trace carries `eventrate` random events per
+-- time-point for each of P and Q.
+frzBenchGen log_f sig_f fo_f nts ntp FrzConfig {..} =
+  let newEvPerTp = fz_eventrate `div` ntp
+      intv = (CstBound 0, fz_ubound)
+   in do
+        case fz_body of
+          FrzCurrent ->
+            T.writeFile fo_f "FRZ F(x0) = P(x0) IN F(x0) AND Q(x0)\n"
+          FrzOnce ->
+            T.writeFile fo_f ("FRZ F(x0) = P(x0) IN Q(x0) AND ONCE" +| intv |+ " F(x0)\n")
+          FrzSince ->
+            T.writeFile fo_f ("FRZ F(x0) = P(x0) IN F(x0) SINCE" +| intv |+ " Q(x0)\n")
+          FrzEventually ->
+            T.writeFile fo_f ("FRZ F(x0) = P(x0) IN Q(x0) AND EVENTUALLY" +| intv |+ " F(x0)\n")
+          FrzNested ->
+            T.writeFile
+              fo_f
+              ( "FRZ F(x0) = P(x0) IN FRZ G(x0) = Q(x0) IN Q(x0) AND ONCE"
+                  +| intv
+                  |+ " (F(x0) AND G(x0))\n"
+              )
+        withFile
+          sig_f
+          WriteMode
+          (\sig_h -> addPredToSig "P" 1 sig_h >> addPredToSig "Q" 1 sig_h)
+        withPrintState log_f $ do
+          forM_ [0 .. nts] $ \i ->
+            forM_ [0 .. (ntp - 1)] $ \_ -> do
+              newDb i
+              outputRandomEvents "P" newEvPerTp 1
+              outputRandomEvents "Q" newEvPerTp 1
+          endOutput
+
 generateLogForBenchmark :: FilePath -> FilePath -> FilePath -> OperatorBenchmark -> IO ()
 generateLogForBenchmark log_f sig_f fo_f OperatorBenchmark {..} =
   case op_config of
@@ -982,6 +1072,7 @@ generateLogForBenchmark log_f sig_f fo_f OperatorBenchmark {..} =
     TemporalOperator tempconf -> temporalBenchGen log_f sig_f fo_f op_numts op_numtpperts tempconf
     OnceAndEqOperator OnceAndEqConfig {..} ->
       onceAndNotBenchGen log_f sig_f fo_f op_numts op_numtpperts oa_eventrate
+    FrzOperator frzconf -> frzBenchGen log_f sig_f fo_f op_numts op_numtpperts frzconf
 
 generateRandomLog :: FilePath -> Signature -> ReaderT Flags IO ()
 generateRandomLog fp sig =

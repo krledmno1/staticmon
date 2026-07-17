@@ -238,3 +238,39 @@ print(len(config))
 with open("config.yaml", 'w', encoding='utf8') as conf_out:
     json.dump(config, conf_out, ensure_ascii=True)
     conf_out.write("\n")
+
+# --- FRZ microbenchmarks (staticmon / monpoly / verimon only) ---------------
+# One benchmark per (body shape, log size); each body shape exercises one FRZ
+# runtime mode: current -> the LET-equivalent path; once[0,10] -> per-instance
+# replay with a bounded window; once[0,*) -> whole-prefix replay; since ->
+# windowed replay via SINCE; eventually -> persistent future instances;
+# nested -> an inner freeze inside each outer instance. Sizes double so the
+# timeout+disqualification shows where each implementation stops scaling.
+
+
+def make_frz_bench(nts, evr, ubound, body):
+    return make_op_benchmark(nts, {
+        "frzoperator": {
+            "eventrate": evr,
+            "ubound": ubound,
+            "body": body
+        }
+    })
+
+
+frz_shapes = [
+    ("frzcurrent", cstb(10)),
+    ("frzonce", cstb(10)),
+    ("frzonce", infb()),
+    ("frzsince", cstb(10)),
+    ("frzeventually", cstb(10)),
+    ("frznested", cstb(10)),
+]
+frz_sizes = [100, 200, 400, 800]
+frz_config = [make_frz_bench(s, 20, ub, body)
+              for (body, ub) in frz_shapes for s in frz_sizes]
+
+print(len(frz_config))
+with open("frz_config.yaml", 'w', encoding='utf8') as conf_out:
+    json.dump(frz_config, conf_out, ensure_ascii=True)
+    conf_out.write("\n")

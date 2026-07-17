@@ -117,7 +117,7 @@ verifyMonitor args =
     aErr = return . Left
 
 monitors :: [Monitor]
-monitors = [staticmon, monpoly, timelymon, whymon, dejavu]
+monitors = [staticmon, monpoly, verimon, timelymon, whymon, dejavu]
 
 monpoly = Monitor {..}
   where
@@ -177,7 +177,8 @@ prepareTranslate tool s f =
 
 timelymon = Monitor {..}
   where
-    supportsBenchmark = const True -- MFOTL superset (no regex in the benchmarks)
+    -- MFOTL superset (no regex in the benchmarks), but no freeze operator
+    supportsBenchmark b = not (usesFrz (benchFeatures b))
     monitorName = "timelymon"
     prepareMonitor = prepareTranslate "timelymon"
     runBenchmark (s', f') _ _ l = do
@@ -193,7 +194,9 @@ timelymon = Monitor {..}
 
 whymon = Monitor {..}
   where
-    supportsBenchmark b = not (usesAggregation (benchFeatures b))
+    supportsBenchmark b =
+      let BenchFeatures {..} = benchFeatures b
+       in not (usesAggregation || usesFrz)
     monitorName = "whymon"
     prepareMonitor = prepareTranslate "whymon"
     runBenchmark (s', f') _ _ l = do
@@ -213,10 +216,10 @@ whymon = Monitor {..}
 
 dejavu = Monitor {..}
   where
-    -- past-only, one-sided metric, no future/aggregation
+    -- past-only, one-sided metric, no future/aggregation/freeze
     supportsBenchmark b =
       let BenchFeatures {..} = benchFeatures b
-       in not (usesFuture || usesTwoSidedInterval || usesMetricPrev || usesAggregation)
+       in not (usesFuture || usesTwoSidedInterval || usesMetricPrev || usesAggregation || usesFrz)
     monitorName = "dejavu"
     prepareMonitor _ f = do
       let work = takeDirectory f </> "dejavu-work"
