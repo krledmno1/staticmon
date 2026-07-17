@@ -1,0 +1,1 @@
+FRZ F(x) = p(x) IN LET U(x) = (F(x) AND ONCE[0,5] q(x)) IN q(x) AND ONCE[0,10] U(x)
