@@ -539,3 +539,25 @@ specialized constants).
 
 staticmon's runtime tracks the intermediate size linearly; join+hash ≥ 52–77%.
 Both exit criteria satisfied → WP-J1.
+
+### WP-J1 — n-ary plumbing (2026-07-17): DONE
+
+Translator-level `try_translate_cluster` (the plan's `flatten_and_chains`,
+done in the front-end per §5's alternative — mirroring `convert_multiway`
+being a front-end pass in VeriMon) + `ex_genjoin` IR node + `mgenjoin`
+operator with per-child queues (n-ary `bin_op_buffer`) executing the old
+binary fold. Gate 6.5 verified by emitted-header introspection
+(all-shared 2-joins and 1pos+1neg stay binary; quadratic-pattern /
+cartesian / ≥3-conjunct shapes flatten). Exit: 520/520 fixtures across
+all five suites; live differential 40/40; compile time at or below
+master (6.0s vs 6.8s on the 5-atom cluster).
+
+### WP-J2 — LFTJ core (2026-07-17): DONE
+
+Compile-time attribute order (6.4 heuristic, unique sort keys), implicit
+tries as per-tp sorted projected vectors (6.1), recursive
+compile-time-participant leapfrog with galloping seek; negatives still
+post-hoc (J3). `STATICMON_GENJOIN_FOLD` restores the fold. Exit
+measurements (verdicts identical): triangle N=100k **7.05s → 3.11s
+(2.3×), RSS 656MB → 134MB**; x-shared parity — expected, its positive
+output *is* the cross product; that shape's win is J3's veto-in-descent.
