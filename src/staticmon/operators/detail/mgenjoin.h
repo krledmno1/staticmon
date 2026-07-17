@@ -22,11 +22,22 @@ using namespace boost::mp11;
 // child's table. The translator guarantees the MAnds side conditions
 // (>= 1 positive; every negative's columns covered by the positives' union).
 //
-// WP-J1 implementation: a left-to-right fold of the existing binary
-// table_join / table_anti_join -- semantically the final algorithm, evaluated
-// the old way, so the cluster plumbing (flattening, n-ary batch alignment,
-// layouts) can be validated in isolation. WP-J2 replaces the fold with the
-// specialized LFTJ enumeration.
+// Execution (WP-J2): a Leapfrog-Triejoin-style enumeration specialized per
+// cluster at compile time. The global attribute order is the 6.4 heuristic
+// (variables on more atoms first; ties broken by first occurrence, which the
+// unique sort keys below encode exactly); each positive child's table is
+// materialized per time-point as a sorted vector in the order's projection
+// onto its layout (an implicit trie, 6.1); the enumeration recurses over the
+// order's depths with the participating children a compile-time set per
+// depth, intersecting via leapfrogging sorted ranges. Intermediate results
+// are never materialized -- output rows are emitted at the deepest level
+// only. Correctness is independent of the order (Generic_Join.thy locale
+// getIJ: any disjoint nonempty cover; a fixed one-column-at-a-time order is
+// an instance). Negatives are still applied post-hoc by anti-join in this
+// work package; WP-J3 turns them into check-only vetoes inside the descent.
+//
+// Define STATICMON_GENJOIN_FOLD to fall back to the WP-J1 execution (a
+// left-to-right fold of binary table_join / table_anti_join) for A/B runs.
 
 // Layout/type accumulator for the left-to-right positive join fold.
 template<typename L, typename T>
@@ -50,6 +61,7 @@ struct mgenjoin;
 template<typename Pos0, typename... Pos, typename... Neg>
 struct mgenjoin<mp_list<Pos0, Pos...>, mp_list<Neg...>> {
   using PosL = mp_list<Pos0, Pos...>;
+  static constexpr std::size_t n_pos = 1 + sizeof...(Pos);
   using folded = mp_fold<mp_list<Pos...>,
                          genjoin_acc<typename Pos0::ResL, typename Pos0::ResT>,
                          genjoin_step>;
@@ -61,6 +73,61 @@ struct mgenjoin<mp_list<Pos0, Pos...>, mp_list<Neg...>> {
   using opt_tab_of = std::optional<table_util::tab_t_of_row_t<typename F::ResT>>;
   template<typename F>
   using queue_of = boost::container::devector<opt_tab_of<F>>;
+
+  // ---- global attribute order (6.4) --------------------------------------
+  // Sort key per variable: atoms-containing-it (descending) with the ResL
+  // position as a unique descending-encoded tie-break -- keys are distinct,
+  // so no stability assumption on mp_sort is needed. WIDTH bounds formula
+  // variable counts.
+  static constexpr std::size_t order_width = 1024;
+  template<typename V>
+  using count_of =
+    mp_plus<mp_if<mp_contains<typename Pos0::ResL, V>, mp_size_t<1>,
+                  mp_size_t<0>>,
+            mp_if<mp_contains<typename Pos::ResL, V>, mp_size_t<1>,
+                  mp_size_t<0>>...>;
+  template<typename V>
+  using sort_key =
+    mp_size_t<count_of<V>::value * order_width +
+              (order_width - 1 - mp_find<ResL, V>::value)>;
+  template<typename A, typename B>
+  using key_greater = mp_bool<(sort_key<A>::value > sort_key<B>::value)>;
+
+  using Order = mp_sort<ResL, key_greater>;
+  static constexpr std::size_t n_depth = mp_size<Order>::value;
+  static_assert(n_depth == mp_size<ResL>::value, "order must cover ResL");
+
+  // Bound-values tuple: for each depth, the type of that variable (looked up
+  // through ResL/ResT); the output row is its projection back to ResL.
+  using ResTL = mp_rename<ResT, mp_list>;
+  template<typename V>
+  using type_of_var = mp_at<ResTL, mp_find<ResL, V>>;
+  using BoundT = mp_rename<mp_transform<type_of_var, Order>, std::tuple>;
+  using out_mask = table_util::get_reorder_mask<Order, ResL>;
+
+  // Per-child projections: every child's layout is a subset of ResL, so its
+  // projection onto Order is a permutation of its own layout.
+  template<std::size_t I>
+  using child_f = mp_at_c<PosL, I>;
+  template<std::size_t I>
+  using child_projL =
+    mp_copy_if_q<Order, mp_bind<mp_contains, typename child_f<I>::ResL, _1>>;
+  template<std::size_t I>
+  using child_projmask =
+    table_util::get_reorder_mask<typename child_f<I>::ResL, child_projL<I>>;
+  template<std::size_t I>
+  using child_projT =
+    mp_rename<mp_apply_idxs<mp_rename<typename child_f<I>::ResT, mp_list>,
+                            child_projmask<I>>,
+              std::tuple>;
+
+  // Does child I participate at depth D, and at which local column?
+  template<std::size_t I, std::size_t D>
+  static constexpr bool participates =
+    mp_contains<typename child_f<I>::ResL, mp_at_c<Order, D>>::value;
+  template<std::size_t I, std::size_t D>
+  static constexpr std::size_t local_col =
+    mp_find<child_projL<I>, mp_at_c<Order, D>>::value;
 
   std::vector<std::optional<res_tab_t>> eval(database &db, const ts_list &ts) {
     // Evaluate every child on the batch, appending outputs to its queue
@@ -94,20 +161,157 @@ private:
     return std::min({std::get<Is>(qs_).size()...});
   }
 
-  // One aligned time-point: pop every child's front, fold the positive joins,
-  // then subtract the negatives.
+  // One aligned time-point: pop every child's front, compute the positive
+  // join (LFTJ enumeration, or the WP-J1 binary fold under
+  // STATICMON_GENJOIN_FOLD), then subtract the negatives.
   std::optional<res_tab_t> reduce_one() {
     auto fronts = pop_fronts(std::index_sequence_for<Pos0, Pos..., Neg...>{});
     if (!all_pos_nonempty(fronts, std::index_sequence_for<Pos0, Pos...>{}))
       return std::nullopt;
+#ifdef STATICMON_GENJOIN_FOLD
     auto joined =
       fold_pos<1, typename Pos0::ResL>(std::move(*std::get<0>(fronts)), fronts);
+#else
+    res_tab_t joined = leapfrog_join(fronts);
+#endif
     if (joined.empty())
       return std::nullopt;
     apply_negs<0>(joined, fronts);
     if (joined.empty())
       return std::nullopt;
     return joined;
+  }
+
+  // ---- LFTJ enumeration ---------------------------------------------------
+  // Implicit tries: each positive child's table as a sorted vector of rows in
+  // its projected column order; a (begin, end) range per child narrows as the
+  // descent binds values.
+  template<std::size_t I>
+  static std::vector<child_projT<I>> build_trie(const auto &opt_tab) {
+    std::vector<child_projT<I>> v;
+    v.reserve(opt_tab->size());
+    for (const auto &row : *opt_tab)
+      v.push_back(project_row<child_projmask<I>>(row));
+    std::sort(v.begin(), v.end());
+    return v;
+  }
+
+  using ranges_t = std::array<std::pair<std::size_t, std::size_t>, n_pos>;
+
+  template<typename Fronts>
+  res_tab_t leapfrog_join(const Fronts &fronts) {
+    auto tries = [&]<std::size_t... Is>(std::index_sequence<Is...>) {
+      return std::tuple(build_trie<Is>(std::get<Is>(fronts))...);
+    }(std::make_index_sequence<n_pos>{});
+    ranges_t rg;
+    [&]<std::size_t... Is>(std::index_sequence<Is...>) {
+      ((rg[Is] = {0, std::get<Is>(tries).size()}), ...);
+    }(std::make_index_sequence<n_pos>{});
+    res_tab_t out;
+    BoundT bound;
+    enumerate<0>(rg, bound, out, tries);
+    return out;
+  }
+
+  // Recursive descent over the attribute order. At depth D the participating
+  // children (a compile-time set) leapfrog on their local column for
+  // Order[D]: repeatedly seek every participant to the current maximum key
+  // until all agree, recurse on the narrowed equal-ranges, then advance past
+  // the matched value.
+  template<std::size_t D, typename Tries>
+  void enumerate(const ranges_t &rg, BoundT &bound, res_tab_t &out,
+                 const Tries &tries) {
+    if constexpr (D == n_depth) {
+      out.emplace(project_row<out_mask>(bound));
+    } else {
+      using VD = std::tuple_element_t<D, BoundT>;
+      ranges_t cur = rg;
+      for (;;) {
+        // max of the participants' current keys; stop if any is exhausted
+        bool exhausted = false;
+        std::optional<VD> maxv;
+        [&]<std::size_t... Is>(std::index_sequence<Is...>) {
+          (([&] {
+             if constexpr (participates<Is, D>) {
+               if (exhausted)
+                 return;
+               if (cur[Is].first == cur[Is].second) {
+                 exhausted = true;
+                 return;
+               }
+               const auto &key = std::get<local_col<Is, D>>(
+                 std::get<Is>(tries)[cur[Is].first]);
+               if (!maxv || maxv < key)
+                 maxv = key;
+             }
+           }()),
+           ...);
+        }(std::make_index_sequence<n_pos>{});
+        if (exhausted)
+          return;
+        // seek every participant to >= maxv; detect agreement
+        bool all_equal = true;
+        [&]<std::size_t... Is>(std::index_sequence<Is...>) {
+          (([&] {
+             if constexpr (participates<Is, D>) {
+               if (exhausted)
+                 return;
+               auto &r = cur[Is];
+               const auto &vec = std::get<Is>(tries);
+               auto key_of = [&](std::size_t p) -> const VD & {
+                 return std::get<local_col<Is, D>>(vec[p]);
+               };
+               if (key_of(r.first) < *maxv) {
+                 // galloping seek within [first, second)
+                 std::size_t step = 1, lo = r.first;
+                 while (lo + step < r.second && key_of(lo + step) < *maxv)
+                   step <<= 1;
+                 std::size_t hi = std::min(r.second, lo + step + 1);
+                 while (lo < hi && key_of(lo) < *maxv)
+                   ++lo;  // final linear touch-up within the last gallop step
+                 r.first = lo;
+                 if (r.first == r.second) {
+                   exhausted = true;
+                   return;
+                 }
+               }
+               if (key_of(r.first) != *maxv)
+                 all_equal = false;
+             }
+           }()),
+           ...);
+        }(std::make_index_sequence<n_pos>{});
+        if (exhausted)
+          return;
+        if (!all_equal)
+          continue;  // a seek moved past maxv; recompute the maximum
+        // matched: bind, narrow each participant to its equal-range, recurse
+        std::get<D>(bound) = *maxv;
+        ranges_t sub = cur;
+        [&]<std::size_t... Is>(std::index_sequence<Is...>) {
+          (([&] {
+             if constexpr (participates<Is, D>) {
+               const auto &vec = std::get<Is>(tries);
+               std::size_t hi = sub[Is].first;
+               while (hi < sub[Is].second &&
+                      std::get<local_col<Is, D>>(vec[hi]) == *maxv)
+                 ++hi;
+               sub[Is].second = hi;
+             }
+           }()),
+           ...);
+        }(std::make_index_sequence<n_pos>{});
+        enumerate<D + 1>(sub, bound, out, tries);
+        // advance every participant past the matched value and continue
+        [&]<std::size_t... Is>(std::index_sequence<Is...>) {
+          (([&] {
+             if constexpr (participates<Is, D>)
+               cur[Is].first = sub[Is].second;
+           }()),
+           ...);
+        }(std::make_index_sequence<n_pos>{});
+      }
+    }
   }
 
   template<std::size_t... Is>
