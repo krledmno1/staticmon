@@ -220,6 +220,25 @@ Excludes future operators, PREV/NEXT, LETPAST, regex.
 timestamps inflate `w` until the window is useless — report that curve rather
 than hide it. Single-level bounded FRZ must be unchanged (already windowed).
 
+**Results (2026-07-17, seeded logs, branch vs post-step-0 master, staticmon):**
+
+| nested @ | master | branch | speedup | monpoly |
+|---|---:|---:|---:|---:|
+| 100 | 0.085 | 0.026 | 3.3× | 0.074 |
+| 200 | 0.256 | 0.038 | 6.8× | 0.279 |
+| 400 | 0.967 | 0.058 | 16.6× | 1.171 |
+| 800 | 3.810 | **0.097** | **39.3×** | 5.594 |
+
+Branch ratios ×1.46/×1.53/×1.67 — **linear in trace length** as predicted
+(Θ(j²·w) → Θ(j·w²)); staticmon nested@800 is now 58× faster than monpoly.
+All other rows within noise (eventually@800 +0.8%, once[0,\*)@800 +2.0%; a
+single-shot 0.6× outlier on the 16ms since@400 row re-measured at parity
+over 5 reps). Emitted-Depth introspection 8/8 (nested `10UL 10UL`, triple
+nest windowed at every level, additive LET case 15, future-α inner freeze
+and LETPAST refs correctly unbounded, step-0 trap unaffected). Correctness:
+105/105 FRZ fixtures (3 new depth-composition cases) + 3/3 regression;
+live differential 2 seeds × 39 formulas, 0 mismatches.
+
 ### FRZ fusion — same-index multi-freeze (`opt/frz-fusion`)
 
 **What is handled inefficiently.** `FRZ F = α₁ IN FRZ G = α₂ IN β` freezes both
