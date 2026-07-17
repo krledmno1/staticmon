@@ -19,7 +19,7 @@ where
 import Control.Applicative (Applicative (liftA2))
 import Control.Exception (assert)
 import Control.Exception.Extra (assertIO)
-import Control.Monad (forM_, replicateM, when)
+import Control.Monad (filterM, forM_, replicateM, when)
 import Control.Monad.Extra (replicateM_)
 import Control.Monad.Reader (ReaderT)
 import Control.Monad.Reader qualified as R
@@ -429,6 +429,44 @@ $( deriveJSON
      ''FrzConfig
  )
 
+-- Generic multiway-join microbenchmarks (docs/LFTJ-STATICMON.md, WP-J0):
+-- GjXShared -- the motivating cluster ((ONCE p(t1,x)) AND (ONCE q(t2,x)))
+--   AND (NOT r(t1,t2)): per-x thread cross product materialized by binary
+--   plans, mostly discarded by a dense negative. gj_width = threads per x,
+--   gj_size = distinct x values; the negative covers gj_density of pairs.
+-- GjTriangle -- ((ONCE p(a,b)) AND (ONCE q(b,c))) AND (ONCE s(a,c)): the
+--   canonical asymptotic binary-vs-WCO separation. gj_size = edges per
+--   relation, gj_width = value domain.
+-- GjSmall2 -- p(x,y) AND q(y,z) with tiny per-tp tables: the gate's
+--   anti-shape, where a generic join must not regress.
+data GjShape = GjXShared | GjTriangle | GjSmall2
+  deriving (Show)
+
+$( deriveJSON
+     defaultOptions
+       { constructorTagModifier = map toLower,
+         sumEncoding = ObjectWithSingleField
+       }
+     ''GjShape
+ )
+
+data GenJoinConfig = GenJoinConfig
+  { gj_shape :: GjShape,
+    gj_size :: Int,
+    gj_width :: Int,
+    gj_density :: Double
+  }
+  deriving (Show)
+
+$( deriveJSON
+     defaultOptions
+       { fieldLabelModifier = drop 3,
+         constructorTagModifier = map toLower,
+         sumEncoding = ObjectWithSingleField
+       }
+     ''GenJoinConfig
+ )
+
 data OperatorConfig
   = AndOperator AndConfig
   | OrOperator OrConfig
@@ -437,6 +475,7 @@ data OperatorConfig
   | TemporalOperator TemporalConfig
   | OnceAndEqOperator OnceAndEqConfig
   | FrzOperator FrzConfig
+  | GenJoinOperator GenJoinConfig
   deriving (Show)
 
 $( deriveJSON
@@ -569,6 +608,7 @@ benchFeatures OperatorBenchmark {..} =
         EventuallyOperator _ -> base {usesFuture = True}
         NextOperator _ -> base {usesFuture = True}
         UntilOperator _ -> base {usesFuture = True}
+    GenJoinOperator _ -> base
     FrzOperator FrzConfig {..} ->
       base
         { usesFrz = True,
@@ -594,6 +634,7 @@ benchCost OperatorBenchmark {..} = op_numts * op_numtpperts * max 1 (cfgSize op_
     cfgSize (ExistsOperator ExistsConfig {..}) = ex_size
     cfgSize (OnceAndEqOperator OnceAndEqConfig {..}) = oa_eventrate
     cfgSize (FrzOperator FrzConfig {..}) = ls_eventrate fz_shape
+    cfgSize (GenJoinOperator GenJoinConfig {..}) = gj_size * max 1 gj_width
     cfgSize (TemporalOperator TemporalConfig {..}) = subSize tc_suboperator
     subSize (OnceOperator OnceConfig {..}) = oc_eventrate
     subSize (EventuallyOperator EventuallyConfig {..}) = ev_eventrate
@@ -664,6 +705,13 @@ getBenchName OperatorBenchmark {..} =
             "once_and_not_"
               +| oa_eventrate
               |+ ""
+          GenJoinOperator GenJoinConfig {..} ->
+            let shapename :: Builder = case gj_shape of
+                  GjXShared -> "xshared"
+                  GjTriangle -> "triangle"
+                  GjSmall2 -> "small2"
+             in "gj_" +| shapename |+ "_" +| gj_size |+ "_" +| gj_width
+                  |+ "_" +| fixedF 2 gj_density |+ ""
           FrzOperator FrzConfig {..} ->
             let LogShape {..} = fz_shape
                 bodyname :: Builder = case fz_body of
@@ -1164,6 +1212,79 @@ seedForBenchmark b = setStdGen (mkStdGen (fnv (getBenchName b)))
   where
     fnv = fromIntegral . T.foldl' (\h c -> (h `xor` fromIntegral (fromEnum c)) * 16777619) (2166136261 :: Word32)
 
+-- Generic multiway-join benchmark (docs/LFTJ-STATICMON.md WP-J0/J2/J4).
+genJoinBenchGen log_f sig_f fo_f nts _ntp GenJoinConfig {..} =
+  case gj_shape of
+    GjXShared -> do
+      T.writeFile fo_f "((ONCE p(t1,x)) AND (ONCE q(t2,x))) AND (NOT r(t1,t2))\n"
+      withFile sig_f WriteMode $ \h ->
+        addPredToSig "p" 2 h >> addPredToSig "q" 2 h >> addPredToSig "r" 2 h
+      let pool = 2 * gj_width
+      rpairs <-
+        concat
+          <$> mapM
+            ( \a ->
+                map (a,) <$> filterM (const (bern gj_density)) [0 .. pool - 1]
+            )
+            [0 .. pool - 1]
+      pq <-
+        concat
+          <$> mapM
+            ( \x -> do
+                ts_ <- replicateM gj_width (uniformRM (0, pool - 1) globalStdGen)
+                concat
+                  <$> mapM
+                    ( \t -> do
+                        alsoq <- bern (0.5 :: Double)
+                        return (("p", t, x) : [("q", t, x) | alsoq])
+                    )
+                    ts_
+            )
+            [0 .. gj_size - 1]
+      let chunk = max 1 (length pq `div` 10)
+      withPrintState log_f $ do
+        forM_ [0 .. nts] $ \i -> do
+          newDb i
+          forM_ rpairs $ \(a, b) ->
+            outputNewEvent "r" [Intgr (fromIntegral a), Intgr (fromIntegral b)]
+          when (i < 10) $
+            forM_ (take chunk (drop (i * chunk) pq)) $ \(n, t, x) ->
+              outputNewEvent n [Intgr (fromIntegral t), Intgr (fromIntegral x)]
+        endOutput
+    GjTriangle -> do
+      T.writeFile fo_f "((ONCE p(a,b)) AND (ONCE q(b,c))) AND (ONCE s(a,c))\n"
+      withFile sig_f WriteMode $ \h ->
+        addPredToSig "p" 2 h >> addPredToSig "q" 2 h >> addPredToSig "s" 2 h
+      let edge = do
+            a <- uniformRM (0, gj_width - 1) globalStdGen
+            b <- uniformRM (0, gj_width - 1) globalStdGen
+            return (a :: Int, b :: Int)
+      withPrintState log_f $ do
+        forM_ [0 .. nts] $ \i -> do
+          newDb i
+          when (i == 0) $
+            forM_ ["p", "q", "s"] $ \n ->
+              replicateM_ gj_size $ do
+                (a, b) <- edge
+                outputNewEvent n [Intgr (fromIntegral a), Intgr (fromIntegral b)]
+        endOutput
+    GjSmall2 -> do
+      -- the gate's anti-shape: tiny per-tp tables, plain binary join
+      T.writeFile fo_f "p(x,y) AND q(y,z)\n"
+      withFile sig_f WriteMode $ \h ->
+        addPredToSig "p" 2 h >> addPredToSig "q" 2 h
+      withPrintState log_f $ do
+        forM_ [0 .. nts] $ \i -> do
+          newDb i
+          forM_ ["p", "q"] $ \n ->
+            replicateM_ gj_size $ do
+              a :: Int <- uniformRM (0, gj_width - 1) globalStdGen
+              b :: Int <- uniformRM (0, gj_width - 1) globalStdGen
+              outputNewEvent n [Intgr (fromIntegral a), Intgr (fromIntegral b)]
+        endOutput
+  where
+    bern prob = (< prob) <$> uniformRM (0, 1 :: Double) globalStdGen
+
 generateLogForBenchmark :: FilePath -> FilePath -> FilePath -> OperatorBenchmark -> IO ()
 generateLogForBenchmark log_f sig_f fo_f b@OperatorBenchmark {..} = do
   seedForBenchmark b
@@ -1176,6 +1297,7 @@ generateLogForBenchmark log_f sig_f fo_f b@OperatorBenchmark {..} = do
     OnceAndEqOperator OnceAndEqConfig {..} ->
       onceAndNotBenchGen log_f sig_f fo_f op_numts op_numtpperts oa_eventrate
     FrzOperator frzconf -> frzBenchGen log_f sig_f fo_f op_numts op_numtpperts frzconf
+    GenJoinOperator gjconf -> genJoinBenchGen log_f sig_f fo_f op_numts op_numtpperts gjconf
 
 generateRandomLog :: FilePath -> Signature -> ReaderT Flags IO ()
 generateRandomLog fp sig =

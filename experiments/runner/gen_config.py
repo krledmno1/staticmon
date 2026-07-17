@@ -322,3 +322,32 @@ print(len(frz_shape_config))
 with open("frz_shapes_config.yaml", 'w', encoding='utf8') as conf_out:
     json.dump(frz_shape_config, conf_out, ensure_ascii=True)
     conf_out.write("\n")
+
+# --- Generic multiway-join microbenchmarks (docs/LFTJ-STATICMON.md) ---------
+# xshared: the motivating cluster; width = threads/x (intermediate ~ size*w^2
+#          per tp). triangle: the asymptotic separation; size = edges,
+#          width = domain. small2: the gate anti-shape (must never regress).
+
+
+def make_gj_bench(nts, shape, size, width, density=0.95):
+    return make_op_benchmark(nts, {
+        "genjoinoperator": {
+            "shape": shape,
+            "size": size,
+            "width": width,
+            "density": density
+        }
+    })
+
+
+gj_config = (
+    [make_gj_bench(50, "gjxshared", 50, w) for w in [40, 80, 160]] +
+    [make_gj_bench(10, "gjtriangle", n, d)
+     for (n, d) in [(5000, 500), (20000, 500), (50000, 1000), (100000, 1000)]] +
+    [make_gj_bench(2000, "gjsmall2", s, 100) for s in [5, 20]]
+)
+
+print(len(gj_config))
+with open("gj_config.yaml", 'w', encoding='utf8') as conf_out:
+    json.dump(gj_config, conf_out, ensure_ascii=True)
+    conf_out.write("\n")

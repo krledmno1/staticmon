@@ -192,11 +192,23 @@ struct ex_frz {
   exformula_ptr body;   // f2
 };
 
+// A flattened conjunction cluster (docs/LFTJ-STATICMON.md): the maximal
+// plain-join/anti-join AND chain, rewritten by the translator when the shape
+// gate holds -- the front-end counterpart of VeriMon's verified
+// convert_multiway pass into MAnds A_pos A_neg L. Every negative's free
+// variables are covered by the positives' union (RANF; asserted by the
+// translator). In WP-J1 the runtime folds binary joins; WP-J2 replaces the
+// fold with the specialized LFTJ enumeration.
+struct ex_genjoin {
+  std::vector<exformula_ptr> pos;  // >= 1, join order = vector order
+  std::vector<exformula_ptr> neg;  // anti-joined after the positive join
+};
+
 struct exformula {
   std::variant<ex_predicate, ex_builtin_tp, ex_builtin_ts, ex_builtin_tpts,
                ex_and, ex_or, ex_neg, ex_eq, ex_empty_rel, ex_temporal_un,
                ex_since, ex_once_agg, ex_since_agg, ex_aggregation, ex_fused,
-               ex_let, ex_frz>
+               ex_let, ex_frz, ex_genjoin>
     node;
 };
 

@@ -1,0 +1,1 @@
+(p(x,y) AND q(y,z)) AND s(z,w)

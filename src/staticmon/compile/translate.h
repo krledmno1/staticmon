@@ -702,6 +702,8 @@ private:
             const auto &f2 = *v.r;
             if (is_special_and(f1, f2))
               return transform_fused_op({}, f);
+            if (auto gj = try_translate_cluster(f))
+              return gj;
             if (const auto *n = std::get_if<fo_neg>(&f2.node))
               return mk_exformula(exformula{
                 ex_and{join_type::anti_join, translate(f1),
@@ -732,6 +734,86 @@ private:
         }
       },
       f.node);
+  }
+
+  // ---- conjunction-cluster flattening (docs/LFTJ-STATICMON.md) ------------
+  // The front-end counterpart of VeriMon's verified convert_multiway pass:
+  // collect the maximal plain-join/anti-join AND chain rooted at f, and --
+  // when the 6.5 shape gate holds -- emit one ex_genjoin instead of the
+  // binary chain. Fused shapes (constraint/assignment conjuncts) stop the
+  // descent and enter the cluster as single positive children, so the
+  // existing msimpleop machinery around them is untouched.
+
+  // In-order collection preserves the left-to-right positive order, which
+  // keeps mgenjoin's folded layout identical to the binary chain's.
+  void collect_cluster(const parser::formula &f,
+                       std::vector<const parser::formula *> &pos,
+                       std::vector<const parser::formula *> &neg) {
+    using namespace parser;
+    auto descend_or_add = [&](const formula &g, bool neg_position) {
+      const auto *a = std::get_if<fo_prop>(&g.node);
+      if (a && a->op == prop_binop::and_ && !is_special_and(*a->l, *a->r)) {
+        collect_cluster(g, pos, neg);
+        return;
+      }
+      if (neg_position) {
+        if (const auto *n = std::get_if<fo_neg>(&g.node)) {
+          neg.push_back(&*n->arg);
+          return;
+        }
+      }
+      pos.push_back(&g);
+    };
+    const auto *a = std::get_if<fo_prop>(&f.node);
+    descend_or_add(*a->l, false);
+    // only the right operand of an AND is an anti-join position (mirrors the
+    // binary translation)
+    descend_or_add(*a->r, true);
+  }
+
+  // The 6.5 shape gate: >= 3 conjuncts; or 2 positives whose shared-variable
+  // set is a strict subset of both (the quadratic-intermediate pattern); or a
+  // negative with >= 2 positives (subsumed by >= 3, kept for clarity).
+  static bool cluster_gate(const std::vector<const parser::formula *> &pos,
+                           const std::vector<const parser::formula *> &neg) {
+    if (pos.size() + neg.size() >= 3)
+      return true;
+    if (pos.size() == 2 && neg.empty()) {
+      auto fv1 = free_vars(*pos[0]), fv2 = free_vars(*pos[1]);
+      std::vector<std::string> shared;
+      for (const auto &x : fv1)
+        if (std::find(fv2.begin(), fv2.end(), x) != fv2.end())
+          shared.push_back(x);
+      return shared.size() < fv1.size() && shared.size() < fv2.size();
+    }
+    return false;
+  }
+
+  exformula_ptr try_translate_cluster(const parser::formula &f) {
+    using namespace parser;
+    std::vector<const formula *> pos, neg;
+    collect_cluster(f, pos, neg);
+    if (!cluster_gate(pos, neg))
+      return nullptr;
+    // MAnds side conditions (RANF; Monitor.thy): >= 1 positive, and every
+    // negative's free variables covered by the positives' union. Guaranteed
+    // by monitorability -- enforce as a hard error to catch translator bugs.
+    if (pos.empty())
+      fail("internal: conjunction cluster without a positive conjunct");
+    std::vector<std::string> pos_fv;
+    for (const auto *p : pos)
+      for (const auto &x : free_vars(*p))
+        if (std::find(pos_fv.begin(), pos_fv.end(), x) == pos_fv.end())
+          pos_fv.push_back(x);
+    for (const auto *n : neg)
+      if (!subset(free_vars(*n), pos_fv))
+        fail("internal: cluster negative not covered by the positives");
+    ex_genjoin node;
+    for (const auto *p : pos)
+      node.pos.push_back(translate(*p));
+    for (const auto *n : neg)
+      node.neg.push_back(translate(*n));
+    return mk_exformula(exformula{std::move(node)});
   }
 
   exformula_ptr translate_aggregation(const parser::fo_agg &a) {
