@@ -325,6 +325,14 @@ I1 (log shapes) ─┬─→ baseline profiles (I2) ─→ step 0 ─→ B ─�
 I2 (profiling) ──┘
 ```
 
+**Merged so far:** I1, I2, step 0, opt B (all FRZ), and — outside the FRZ
+track — the generic multiway (leapfrog-triejoin) join operator
+(`opt/genjoin`, merged 9e0d2e8; plan in [docs/LFTJ-STATICMON.md]). genjoin
+was self-contained (its own WP-J0…J4 gates, VeriMon-oracle conformance) and
+did not depend on the FRZ order above. **Still open:** FRZ fusion
+(`opt/frz-fusion`) and opt A shared-db (`opt/shared-db`), plus the genjoin
+WP-J5 backlog (seek binary-search, sorted temporal state, order hints).
+
 Step 0 precedes B because B's window is only as good as the guard that permits
 it. B precedes fusion so that fusion is measured against an already-linear
 baseline instead of collecting credit for B's work. A is last because the
