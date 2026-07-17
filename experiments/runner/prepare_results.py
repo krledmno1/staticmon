@@ -61,6 +61,13 @@ configs = [
         "conv_fs": ([int] * 3) + [id_f, int]
     },
     {
+        # freeze operator: <numts>_<numtp>_frz_<body>_<ubound|inf>_<evr>
+        "name": "frz",
+        "regex": r"(\d*)_(\d*)_frz_([a-z]*)_(\d*|inf)_(\d*)",
+        "cols": ["numts", "numtp", "body", "ubound", "evr"],
+        "conv_fs": [int, int, id_f, id_f, int]
+    },
+    {
         "name": "previous",
         "regex": r"(\d*)_(\d*)_prev_(\d*)_(\d*|inf)_(\d*)",
         "cols": ["numts", "numtp", "lbound", "ubound", "size"],
@@ -70,6 +77,8 @@ configs = [
 
 for conf in configs:
     data_subset = data[data.benchmark.str.match(conf["regex"])]
+    if data_subset.empty:
+        continue  # family not in this run; don't leave a header-only CSV
     new_col_dict = {
         col: [] for col in conf["cols"]
     }
