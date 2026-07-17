@@ -13,3 +13,4 @@
 #include <staticmon/operators/detail/aggregations.h>
 #include <staticmon/operators/detail/mlet.h>
 #include <staticmon/operators/detail/mfrz.h>
+#include <staticmon/operators/detail/mgenjoin.h>

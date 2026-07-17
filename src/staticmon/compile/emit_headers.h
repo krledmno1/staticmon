@@ -259,7 +259,7 @@ private:
                  std::to_string(v.id) + ", " + render_var_list(v.pred_layout) +
                  ", " + render_formula(*v.bound) + ", " +
                  render_formula(*v.body) + ">";
-        } else {  // ex_frz
+        } else if constexpr (std::is_same_v<T, ex_frz>) {
           // Depth: bounded-past replay window in ts units; frz_no_depth
           // (SIZE_MAX) replays the whole prefix.
           std::string d = v.depth ? std::to_string(*v.depth) + "UL"
@@ -268,6 +268,14 @@ private:
                  render_var_list(v.pred_layout) + ", " + d + ", " +
                  render_formula(*v.bound) + ", " + render_formula(*v.body) +
                  ">";
+        } else {  // ex_genjoin
+          std::string s = "mgenjoin<mp_list<";
+          for (std::size_t i = 0; i < v.pos.size(); ++i)
+            s += (i ? ", " : "") + render_formula(*v.pos[i]);
+          s += ">, mp_list<";
+          for (std::size_t i = 0; i < v.neg.size(); ++i)
+            s += (i ? ", " : "") + render_formula(*v.neg[i]);
+          return s + ">>";
         }
       },
       f.node);
