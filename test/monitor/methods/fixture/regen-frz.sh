@@ -86,6 +86,10 @@ x_since_lhs|FRZ F(x) = p(x) IN F(x) SINCE[0,10] q(x)
 x_since_rhs|FRZ F(x) = p(x) IN q(x) SINCE[0,10] F(x)
 x_negated_lhs|FRZ F(x) = p(x) IN (NOT F(x)) SINCE[0,10] q(x)
 x_exists_body|FRZ T(x,y) = r(x,y) IN EXISTS y. ONCE[0,10] T(x,y)
+x_lag_trap|FRZ P2(x) = (EVENTUALLY[0,2] p(x)) IN FRZ G(x) = q(x) IN P2(x) AND ONCE[0,3] G(x)
+x_lag_control|FRZ P2(x) = (ONCE[0,2] p(x)) IN FRZ G(x) = q(x) IN P2(x) AND ONCE[0,3] G(x)
+x_enclosing_future_let|LET U(x) = EVENTUALLY[0,5] q(x) IN FRZ F(x) = p(x) IN ONCE[0,3] (F(x) AND U(x))
+x_win_edge15|FRZ F(x) = p(x) IN q(x) AND ONCE[0,15] F(x)
 EOF
 }
 xkept=0

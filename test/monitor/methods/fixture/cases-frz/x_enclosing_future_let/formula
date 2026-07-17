@@ -1,0 +1,1 @@
+LET U(x) = EVENTUALLY[0,5] q(x) IN FRZ F(x) = p(x) IN ONCE[0,3] (F(x) AND U(x))
