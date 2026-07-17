@@ -248,10 +248,22 @@ with open("config.yaml", 'w', encoding='utf8') as conf_out:
 # timeout+disqualification shows where each implementation stops scaling.
 
 
-def make_frz_bench(nts, evr, ubound, body):
-    return make_op_benchmark(nts, {
+def log_shape(evr=20, tsstep=1, domain=100000, payload="intpayload"):
+    """The log's data characteristics. The defaults are the original FRZ
+    benchmark log: 20 events/ts per predicate, ts advancing by 1, a large
+    (mostly collision-free) domain, int payloads."""
+    return {
+        "eventrate": evr,
+        "tsstep": tsstep,
+        "domain": domain,
+        "payload": payload
+    }
+
+
+def make_frz_bench(nts, ubound, body, shape=None, tpts=1):
+    return make_op_benchmark_tp(nts, tpts, {
         "frzoperator": {
-            "eventrate": evr,
+            "shape": shape if shape else log_shape(),
             "ubound": ubound,
             "body": body
         }
@@ -267,10 +279,46 @@ frz_shapes = [
     ("frznested", cstb(10)),
 ]
 frz_sizes = [100, 200, 400, 800]
-frz_config = [make_frz_bench(s, 20, ub, body)
+frz_config = [make_frz_bench(s, ub, body)
               for (body, ub) in frz_shapes for s in frz_sizes]
 
 print(len(frz_config))
 with open("frz_config.yaml", 'w', encoding='utf8') as conf_out:
     json.dump(frz_config, conf_out, ensure_ascii=True)
+    conf_out.write("\n")
+
+# --- FRZ log-shape sweeps (docs/optimization-plan.md, I1) -------------------
+# One factor at a time, at a fixed log length, so each optimization can be
+# measured against the axis its benefit hinges on. Bodies are chosen per axis
+# to keep the runtime bounded (nested is the expensive one).
+#
+#   tsstep / tpperts  -- how many time-points a metric window [ts-d, ts] spans:
+#                        sparse timestamps shrink it, stuttering grows it, at
+#                        constant data volume. Governs opt B's window benefit.
+#   payload / evr     -- bytes copied per batch: strings turn every event copy
+#                        into a heap allocation. Governs opt A.
+#   domain            -- collision density: small domains mean small tables and
+#                        many duplicate tuples.
+FRZ_SWEEP_NTS = 200
+windowed = [("frzonce", cstb(10)), ("frznested", cstb(10))]
+
+frz_tsstep = [make_frz_bench(FRZ_SWEEP_NTS, ub, body, log_shape(tsstep=s))
+              for (body, ub) in windowed for s in [1, 2, 5, 10]]
+frz_stutter = [make_frz_bench(FRZ_SWEEP_NTS, ub, body, log_shape(), tpts=k)
+               for (body, ub) in windowed for k in [2, 4]]
+frz_payload = [make_frz_bench(FRZ_SWEEP_NTS, ub, body, log_shape(payload=p))
+               for (body, ub) in [("frzonce", infb()), ("frznested", cstb(10))]
+               for p in ["intpayload", "strpayload"]]
+frz_evr = [make_frz_bench(FRZ_SWEEP_NTS, infb(), "frzonce", log_shape(evr=e))
+           for e in [5, 20, 80]]
+frz_domain = [make_frz_bench(FRZ_SWEEP_NTS, cstb(10), "frzonce",
+                             log_shape(domain=d))
+              for d in [10, 1000, 100000]]
+
+frz_shape_config = (frz_tsstep + frz_stutter + frz_payload + frz_evr
+                    + frz_domain)
+
+print(len(frz_shape_config))
+with open("frz_shapes_config.yaml", 'w', encoding='utf8') as conf_out:
+    json.dump(frz_shape_config, conf_out, ensure_ascii=True)
     conf_out.write("\n")

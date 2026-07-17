@@ -169,4 +169,47 @@ if (file.exists("frz_data.csv")) {
     ylab("Duration (s, log)") +
     xlab("Log size (time-points, log)")
   print(p3)
+
+  # --- log-shape sweeps (I1) ------------------------------------------------
+  # One factor at a time at a fixed length; each panel varies exactly the axis
+  # an optimization's benefit hinges on, with the other axes at their defaults.
+  # Only drawn when the sweep config was part of the run.
+  sweep <- function(data, xvar, xlab_, title_) {
+    if (nrow(data) < 2 || length(unique(data[[xvar]])) < 2) return(invisible(NULL))
+    p <- ggplot(data, aes(.data[[xvar]], time, color = monitor)) +
+      geom_line() + geom_point(size = 1) +
+      facet_wrap(. ~ shape) +
+      scale_y_log10() +
+      ylab("Duration (s, log)") + xlab(xlab_) + ggtitle(title_)
+    print(p)
+  }
+  ok <- frz_data %>%
+    filter(status == "ok") %>%
+    mutate(shape = ifelse(ubound == Inf, paste0(body, "[0,*)"), body))
+
+  # opt B: how many time-points a metric window spans, at constant data volume.
+  sweep(ok %>% filter(numtp == 1, evr == 20, domain == 100000, payload == "int"),
+        "tsstep", "Timestamp step (sparsity)", "FRZ: timestamp sparsity")
+  sweep(ok %>% filter(tsstep == 1, domain == 100000, payload == "int",
+                      numts == 200),
+        "numtp", "Time-points per timestamp (stuttering)", "FRZ: index rate")
+  # opt A: bytes copied per batch.
+  sweep(ok %>% filter(numtp == 1, tsstep == 1, domain == 100000,
+                      payload == "int", numts == 200),
+        "evr", "Events per timestamp", "FRZ: event rate")
+  # table density.
+  sweep(ok %>% filter(numtp == 1, tsstep == 1, payload == "int", evr == 20,
+                      numts == 200),
+        "domain", "Value domain", "FRZ: collision density")
+  # int vs string payload: a bar plot, the axis is categorical.
+  pay <- ok %>% filter(numtp == 1, tsstep == 1, domain == 100000, evr == 20,
+                       numts == 200)
+  if (nrow(pay) > 1 && length(unique(pay$payload)) > 1) {
+    print(ggplot(pay, aes(payload, time, fill = monitor)) +
+      geom_col(width = 0.8, position = position_dodge(width = 0.9)) +
+      geom_text(aes(label = sprintf("%.2f", time)), size = 2.5, vjust = -0.2,
+                position = position_dodge(width = 0.9)) +
+      facet_wrap(. ~ shape) +
+      ylab("Duration (s)") + xlab("Payload") + ggtitle("FRZ: payload type"))
+  }
 }
